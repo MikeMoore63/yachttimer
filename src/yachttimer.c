@@ -149,7 +149,14 @@ void handle_init(AppContextRef ctx) {
     text_layer_set_background_color(&big_time_layer, GColorBlack);
     text_layer_set_font(&big_time_layer, big_font);
     text_layer_set_text_color(&big_time_layer, GColorWhite);
-    text_layer_set_text(&big_time_layer, "00:00");
+    if(isstopwatch)
+    {
+    	text_layer_set_text(&big_time_layer, "00:00");
+    }
+    else
+    {
+    	text_layer_set_text(&big_time_layer, "00:05");
+    }
     text_layer_set_text_alignment(&big_time_layer, GTextAlignmentRight);
     layer_add_child(root_layer, &big_time_layer.layer);
 
@@ -257,14 +264,14 @@ void lap_time_handler(ClickRecognizerRef recognizer, Window *window) {
 		time_t t = start_gun_time - elapsed_time; 	
 		last_lap_time = t;
 		save_lap_time(t);
-
 		// Now target new gun as started if above 2 mins target 4
+		// do this even if halted
 		if(t >= switch_4or1_time)
 		{
 			// as manually set don't buzz
 			buzzatbluepeter=false;
 			elapsed_time = blue_peter_time;
-			// had to have been 60 seconds before hadn
+			// had to have been 60 seconds before happened
 			start_time = last_pebble_time - (start_gun_time - blue_peter_time);
 		}
 		else  // otherwise target 1 minute
@@ -277,6 +284,7 @@ void lap_time_handler(ClickRecognizerRef recognizer, Window *window) {
 			start_time = last_pebble_time - (start_gun_time - one_minute_time) ;
 		}
 	}
+
     }
 }
 
