@@ -32,7 +32,7 @@
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             2, 0, /* App version */
+             3, 0, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
@@ -138,16 +138,16 @@ void handle_init(AppContextRef ctx) {
 
     // Get our fonts
     GFont big_font = fonts_load_custom_font(resource_get_handle(FONT_BIG_TIME));
-    GFont seconds_font = fonts_load_custom_font(resource_get_handle(FONT_SECONDS));
+    GFont little_font = fonts_load_custom_font(resource_get_handle(FONT_SECONDS));
     GFont laps_font = fonts_load_custom_font(resource_get_handle(FONT_LAPS));
 
     // Root layer
     Layer *root_layer = window_get_root_layer(&window);
 
     // Set up the big timer.
-    text_layer_init(&big_time_layer, GRect(0, 5, 96, 35));
+    text_layer_init(&big_time_layer, GRect(0, 17, 55, 35));
     text_layer_set_background_color(&big_time_layer, GColorBlack);
-    text_layer_set_font(&big_time_layer, big_font);
+    text_layer_set_font(&big_time_layer, little_font);
     text_layer_set_text_color(&big_time_layer, GColorWhite);
     if(isstopwatch)
     {
@@ -160,9 +160,9 @@ void handle_init(AppContextRef ctx) {
     text_layer_set_text_alignment(&big_time_layer, GTextAlignmentRight);
     layer_add_child(root_layer, &big_time_layer.layer);
 
-    text_layer_init(&seconds_time_layer, GRect(96, 17, 49, 35));
+    text_layer_init(&seconds_time_layer, GRect(55, 5, 96, 35));
     text_layer_set_background_color(&seconds_time_layer, GColorBlack);
-    text_layer_set_font(&seconds_time_layer, seconds_font);
+    text_layer_set_font(&seconds_time_layer, big_font);
     text_layer_set_text_color(&seconds_time_layer, GColorWhite);
     text_layer_set_text(&seconds_time_layer, ":00.0");
     layer_add_child(root_layer, &seconds_time_layer.layer);
@@ -250,20 +250,20 @@ void reset_stopwatch_handler(ClickRecognizerRef recognizer, Window *window) {
 
 void lap_time_handler(ClickRecognizerRef recognizer, Window *window) {
     if(busy_animating) return;
-    if(isstopwatch)
+    if(started)
     {
-     	time_t t = elapsed_time - last_lap_time;
-    	last_lap_time = elapsed_time;
-    	save_lap_time(t);
-    }
-    else
-    {
-	if(started)
-	{
-		// Save when button was pressed for aptime display
-		time_t t = start_gun_time - elapsed_time; 	
+	    time_t t=0;
+	    if(isstopwatch)
+	    {
+		t = elapsed_time - last_lap_time;
+		last_lap_time = elapsed_time;
+	    }
+	    else
+	    {
+		// Save when button was pressed for laptime display
+		t = start_gun_time - elapsed_time; 	
 		last_lap_time = t;
-		save_lap_time(t);
+
 		// Now target new gun as started if above 2 mins target 4
 		// do this even if halted
 		if(t >= switch_4or1_time)
@@ -283,8 +283,8 @@ void lap_time_handler(ClickRecognizerRef recognizer, Window *window) {
 			// had to have been 240 seconds before hadn
 			start_time = last_pebble_time - (start_gun_time - one_minute_time) ;
 		}
-	}
-
+    	   }
+	   save_lap_time(t);
     }
 }
 
@@ -321,12 +321,12 @@ void update_stopwatch() {
     {
 	
 	display_time = (elapsed_time > start_gun_time) ? 0:(start_gun_time - elapsed_time);
-	if(buzzatbluepeter && display_time < blue_peter_time) 
+	if(buzzatbluepeter && display_time <= blue_peter_time) 
 	{
 		buzzatbluepeter=false;
 		vibes_double_pulse();
 	}
-	if(buzzatone && display_time < one_minute_time) 
+	if(buzzatone && display_time <= one_minute_time) 
 	{
 		buzzatone=false;
 		vibes_double_pulse();
