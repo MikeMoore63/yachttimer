@@ -32,7 +32,7 @@
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             3, 0, /* App version */
+             4, 0, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
@@ -452,8 +452,8 @@ void toggle_mode(ClickRecognizerRef recognizer, Window *window) {
 void config_provider(ClickConfig **config, Window *window) {
     config[BUTTON_ID_SELECT]->click.handler = (ClickHandler)toggle_stopwatch_handler;
     config[BUTTON_ID_SELECT]->long_click.handler = (ClickHandler) toggle_mode;
-    config[BUTTON_ID_DOWN]->click.handler = (ClickHandler)reset_stopwatch_handler;
-    config[BUTTON_ID_UP]->click.handler = (ClickHandler)lap_time_handler;
+    config[BUTTON_ID_UP]->click.handler = (ClickHandler)reset_stopwatch_handler;
+    config[BUTTON_ID_DOWN]->click.handler = (ClickHandler)lap_time_handler;
     (void)window;
 }
 
