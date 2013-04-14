@@ -16,7 +16,7 @@
 // Anything below 4:00 and above 2:00 would be 4:00 if below 2:00 would be 1:00.
 // Reset takes back to 5:00.
 //
-// Vibrates at 4 minutes and 1 minute and final timer with custome vibrate pattern. (to be done still)
+// Vibrates at 4 minutes and 1 minute and final timer with custome vibrate pattern. 
 // Times of reset are recorde as lap timers (Mainly as helps debug and for feedback as I use it).
 //
 // long press on select button toggles mode and aim is to toggle while running between modes

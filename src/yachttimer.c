@@ -20,7 +20,7 @@
 // Anything below 4:00 and above 2:00 would be 4:00 if below 2:00 would be 1:00. 
 // Reset takes back to 5:00.
 //
-// Vibrates at 4 minutes and 1 minute and final timer with custome vibrate pattern.
+// Vibrates at 4 minutes and 1 minute and final timer with custome vibrate pattern. 
 // Times of reset are recorde as lap timers (Mainly as helps debug and for feedback as I use it). 
 // 
 // long press on select button toggles mode and aim is to toggle while running between modes
@@ -32,7 +32,7 @@
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             1, 0, /* App version */
+             2, 0, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
@@ -84,6 +84,9 @@ time_t blue_peter_time = 240000;
 time_t switch_4or1_time = 120000;
 // 1 minute
 time_t one_minute_time = 60000;
+// flags to track if we have buzzed for 4 and 1 min gun
+// as lap times reset will not buzz when button pressed but if not will buzz
+bool buzzatbluepeter=true, buzzatone=true;
 
 // false = countdown, true = stopwatch
 // Keep Katherine stopwatch mode
@@ -222,6 +225,9 @@ void reset_stopwatch_handler(ClickRecognizerRef recognizer, Window *window) {
     start_time=0;
     last_lap_time = 0; 
     last_lap_time = 0;
+    buzzatbluepeter=true; 
+    buzzatone=true;
+
     update_stopwatch();
 
     // Animate all the laps away.
@@ -255,12 +261,16 @@ void lap_time_handler(ClickRecognizerRef recognizer, Window *window) {
 		// Now target new gun as started if above 2 mins target 4
 		if(t >= switch_4or1_time)
 		{
+			// as manually set don't buzz
+			buzzatbluepeter=false;
 			elapsed_time = blue_peter_time;
 			// had to have been 60 seconds before hadn
 			start_time = last_pebble_time - (start_gun_time - blue_peter_time);
 		}
 		else  // otherwise target 1 minute
 		{
+			// as manually set don't buzz
+			buzzatone=false;
 			elapsed_time = one_minute_time;
 
 			// had to have been 240 seconds before hadn
@@ -301,7 +311,18 @@ void update_stopwatch() {
     }
     else
     {
+	
 	display_time = (elapsed_time > start_gun_time) ? 0:(start_gun_time - elapsed_time);
+	if(buzzatbluepeter && display_time < blue_peter_time) 
+	{
+		buzzatbluepeter=false;
+		vibes_double_pulse();
+	}
+	if(buzzatone && display_time < one_minute_time) 
+	{
+		buzzatone=false;
+		vibes_double_pulse();
+	}
 	if(display_time == 0)
 	{
 		stop_stopwatch();
