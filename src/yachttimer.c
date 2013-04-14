@@ -416,6 +416,7 @@ void toggle_mode(ClickRecognizerRef recognizer, Window *window) {
   (void)recognizer;
   (void)window;
   isstopwatch = isstopwatch ? false:true;
+  update_stopwatch();
 
 }
 
