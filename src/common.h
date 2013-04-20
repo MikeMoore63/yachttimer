@@ -20,8 +20,10 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-
+#ifndef _KBCOMMON_H_
+#define _KBCOMMON_H_
 void itoa1(int i, char* a);
 void itoa2(int i, char* a);
 time_t get_pebble_time();
 void format_lap(time_t time, char* buffer);
+#endif

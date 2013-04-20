@@ -1,7 +1,31 @@
+/*
+ * Pebble Stopwatch - the big, ugly file.
+ * Copyright (C) 2013 Katharine Berry
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 #include "pebble_os.h"
 #include "pebble_app.h"
 #include "pebble_fonts.h"
 
+#include "laps.h"
+#include "common.h"
 // 
 // Stop watch timer based upon stop watch atimer code from Katherine Berry so many thanks to Katherine
 // for a starting set of code.
@@ -28,35 +52,40 @@
 // Will work on timer/chrono flag as well.
 //
 
+#define WHITE_ON_BLACK 
+
+#ifndef WHITE_ON_BLACK
+#define COLOUR_FOREGROUND GColorBlack
+#define COLOUR_BACKGROUND GColorWhite
+#else 
+#define COLOUR_FOREGROUND GColorWhite
+#define COLOUR_BACKGROUND GColorBlack
+#endif 
+
+
 #define MY_UUID { 0xE7, 0xB1, 0xD0, 0x1B, 0x7F, 0x1C, 0x48, 0x6A, 0x85, 0xB0, 0xDC, 0xA3, 0xD7, 0x4E, 0x7D, 0xCA }
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             4, 0, /* App version */
+             4, 2, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
-Window window;
+static Window window;
 AppContextRef app;
 
 // Main display
-TextLayer big_time_layer;
-TextLayer seconds_time_layer;
-Layer line_layer;
-
-// Custom vibration pattern
-const VibePattern start_pattern = {
-  .durations = (uint32_t []) {100, 300, 300, 300, 100, 300},
-  .num_segments = 6
-};
+static TextLayer big_time_layer;
+static TextLayer seconds_time_layer;
+static Layer line_layer;
 
 
 // Lap time display
 #define LAP_TIME_SIZE 5
-char lap_times[LAP_TIME_SIZE][11] = {"00:00:00.0", "00:01:00.0", "00:02:00.0", "00:03:00.0", "00:04:00.0"};
-TextLayer lap_layers[LAP_TIME_SIZE]; // an extra temporary layer
-int next_lap_layer = 0;
-time_t last_lap_time = 0;
+static char lap_times[LAP_TIME_SIZE][11] = {"00:00:00.0", "00:01:00.0", "00:02:00.0", "00:03:00.0", "00:04:00.0"};
+static TextLayer lap_layers[LAP_TIME_SIZE]; // an extra temporary layer
+static int next_lap_layer = 0;
+static int last_lap_time = 0;
 
 // The documentation claims this is defined, but it is not.
 // Define it here for now.
@@ -65,46 +94,77 @@ time_t last_lap_time = 0;
 #endif
 
 // Actually keeping track of time
-time_t elapsed_time = 0;
-
+static time_t elapsed_time = 0;
+static bool started = false;
+static AppTimerHandle update_timer = APP_TIMER_INVALID_HANDLE;
 // We want hundredths of a second, but Pebble won't give us that.
 // Pebble's timers are also too inaccurate (we run fast for some reason)
 // Instead, we count our own time but also adjust ourselves every pebble
 // clock tick. We maintain our original offset in hundredths of a second
 // from the first tick. This should ensure that we always have accurate times.
-time_t start_time = 0;
-time_t last_pebble_time = 0;
+static time_t start_time = 0;
+static time_t last_pebble_time = 0;
 
+#define STARTGUNTIME 300000
 
 // Hard coded 5 minutes 
-time_t start_gun_time = 300000;
+static time_t start_gun_time = STARTGUNTIME;
+
+// Current timer countdown
+static time_t countdown_time = STARTGUNTIME;
+
+// Timer config time
+// Alter this when in config mode
+// When switch to timer mode set countdown to this time
+static time_t config_time = STARTGUNTIME;
+
 // 4 minutes
-time_t blue_peter_time = 240000;
+static time_t blue_peter_time = 240000;
 // 2 minutes focus constant if above go to 4 minutes if below go to 1 minute
-time_t switch_4or1_time = 120000;
+static time_t switch_4or1_time = 120000;
 // 1 minute
-time_t one_minute_time = 60000;
+static time_t one_minute_time = 60000;
+static time_t one_second_time = 1000;
 // flags to track if we have buzzed for 4 and 1 min gun
 // as lap times reset will not buzz when button pressed but if not will buzz
-bool buzzatbluepeter=true, buzzatone=true;
+static bool buzzatbluepeter=true, buzzatone=true;
 
-// false = countdown, true = stopwatch
+#define	YACHTIMER	0
+#define	STOPWATCH	1
+#define COUNTDOWN	2
+#define CNTDWNCNFGHRS	3
+#define CNTDWNCNFGMIN	4
+#define CNTDWNCNFGSEC	5
+#define MAXMODE		6
+
+static int buttonmodeimages[MAXMODE];
+static BmpContainer button_labels[MAXMODE];
+
+// 
 // Keep Katherine stopwatch mode
-bool isstopwatch = false;
+static int appmode = YACHTIMER;
 
-bool started = false;
-AppTimerHandle update_timer = APP_TIMER_INVALID_HANDLE;
+// Custom vibration pattern
+const VibePattern start_pattern = {
+  .durations = (uint32_t []) {100, 300, 300, 300, 100, 300},
+  .num_segments = 6
+};
 
 // Global animation lock. As long as we only try doing things while
 // this is zero, we shouldn't crash the watch.
-int busy_animating = 0;
+static int busy_animating = 0;
 
 #define TIMER_UPDATE 1
 #define FONT_BIG_TIME RESOURCE_ID_FONT_DEJAVU_SANS_BOLD_SUBSET_30
 #define FONT_SECONDS RESOURCE_ID_FONT_DEJAVU_SANS_SUBSET_18
 #define FONT_LAPS RESOURCE_ID_FONT_DEJAVU_SANS_SUBSET_22
 
+#define BUTTON_LAP BUTTON_ID_DOWN
+#define BUTTON_RUN BUTTON_ID_SELECT
+#define BUTTON_RESET BUTTON_ID_UP
+
 void toggle_stopwatch_handler(ClickRecognizerRef recognizer, Window *window);
+void countdown_config_handler(ClickRecognizerRef recognizer, Window *window);
 void config_provider(ClickConfig **config, Window *window);
 void handle_init(AppContextRef ctx);
 time_t time_seconds();
@@ -113,7 +173,6 @@ void start_stopwatch();
 void toggle_stopwatch_handler(ClickRecognizerRef recognizer, Window *window);
 void toggle_mode(ClickRecognizerRef recognizer, Window *window);
 void reset_stopwatch_handler(ClickRecognizerRef recognizer, Window *window);
-void itoa2(int num, char* buffer);
 void update_stopwatch();
 void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie);
 void pbl_main(void *params);
@@ -121,14 +180,14 @@ void draw_line(Layer *me, GContext* ctx);
 void save_lap_time(time_t seconds);
 void lap_time_handler(ClickRecognizerRef recognizer, Window *window);
 void shift_lap_layer(PropertyAnimation* animation, Layer* layer, GRect* target, int distance_multiplier);
-time_t get_pebble_time();
+void config_countdown(int appmode,int increment);
 
 void handle_init(AppContextRef ctx) {
     app = ctx;
 
     window_init(&window, "Stopwatch");
     window_stack_push(&window, true /* Animated */);
-    window_set_background_color(&window, GColorBlack);
+    window_set_background_color(&window, COLOUR_BACKGROUND);
     window_set_fullscreen(&window, false);
 
     resource_init_current_app(&APP_RESOURCES);
@@ -138,33 +197,36 @@ void handle_init(AppContextRef ctx) {
 
     // Get our fonts
     GFont big_font = fonts_load_custom_font(resource_get_handle(FONT_BIG_TIME));
-    GFont little_font = fonts_load_custom_font(resource_get_handle(FONT_SECONDS));
+    GFont seconds_font = fonts_load_custom_font(resource_get_handle(FONT_SECONDS));
     GFont laps_font = fonts_load_custom_font(resource_get_handle(FONT_LAPS));
 
     // Root layer
     Layer *root_layer = window_get_root_layer(&window);
 
     // Set up the big timer.
-    text_layer_init(&big_time_layer, GRect(0, 17, 55, 35));
-    text_layer_set_background_color(&big_time_layer, GColorBlack);
-    text_layer_set_font(&big_time_layer, little_font);
-    text_layer_set_text_color(&big_time_layer, GColorWhite);
-    if(isstopwatch)
+    text_layer_init(&big_time_layer, GRect(0, 5, 96, 35));
+    text_layer_set_background_color(&big_time_layer, COLOUR_BACKGROUND);
+    text_layer_set_font(&big_time_layer, big_font);
+    text_layer_set_text_color(&big_time_layer, COLOUR_FOREGROUND);
+    
+    // in init only have either stopwatch or yachtmode
+    // if countdown then default to 5 mins same as yacht timer anyhow
+    if(appmode == STOPWATCH)
     {
     	text_layer_set_text(&big_time_layer, "00:00");
     }
     else
     {
-    	text_layer_set_text(&big_time_layer, "00:05");
+    	text_layer_set_text(&big_time_layer, "05:00");
     }
     text_layer_set_text_alignment(&big_time_layer, GTextAlignmentRight);
     layer_add_child(root_layer, &big_time_layer.layer);
 
-    text_layer_init(&seconds_time_layer, GRect(55, 5, 96, 35));
-    text_layer_set_background_color(&seconds_time_layer, GColorBlack);
-    text_layer_set_font(&seconds_time_layer, big_font);
-    text_layer_set_text_color(&seconds_time_layer, GColorWhite);
-    text_layer_set_text(&seconds_time_layer, ":00.0");
+    text_layer_init(&seconds_time_layer, GRect(96, 17, 49, 35));
+    text_layer_set_background_color(&seconds_time_layer, COLOUR_BACKGROUND);
+    text_layer_set_font(&seconds_time_layer, seconds_font);
+    text_layer_set_text_color(&seconds_time_layer, COLOUR_FOREGROUND);
+    text_layer_set_text(&seconds_time_layer, ".0");
     layer_add_child(root_layer, &seconds_time_layer.layer);
 
     // Draw our nice line.
@@ -177,15 +239,44 @@ void handle_init(AppContextRef ctx) {
         text_layer_init(&lap_layers[i], GRect(-139, 52, 139, 30));
         text_layer_set_background_color(&lap_layers[i], GColorClear);
         text_layer_set_font(&lap_layers[i], laps_font);
-        text_layer_set_text_color(&lap_layers[i], GColorWhite);
+        text_layer_set_text_color(&lap_layers[i], COLOUR_FOREGROUND);
         text_layer_set_text(&lap_layers[i], lap_times[i]);
         layer_add_child(root_layer, &lap_layers[i].layer);
     }
+
+    // Add some button labels
+    buttonmodeimages[STOPWATCH] = RESOURCE_ID_IMAGE_STOPWATCH_BUTTON_LABELS; 
+    buttonmodeimages[YACHTIMER] = RESOURCE_ID_IMAGE_YACHTIMER_BUTTON_LABELS; 
+    buttonmodeimages[COUNTDOWN] = RESOURCE_ID_IMAGE_COUNTDOWN_BUTTON_LABELS; 
+    buttonmodeimages[CNTDWNCNFGHRS] = RESOURCE_ID_IMAGE_CNTDWNCNFGHRS_BUTTON_LABELS; 
+    buttonmodeimages[CNTDWNCNFGMIN] = RESOURCE_ID_IMAGE_CNTDWNCNFGMIN_BUTTON_LABELS; 
+    buttonmodeimages[CNTDWNCNFGSEC] = RESOURCE_ID_IMAGE_CNTDWNCNFGSEC_BUTTON_LABELS; 
+
+    // Set up button layers
+    for(int i=0;i<MAXMODE;i++) {
+    	bmp_init_container(buttonmodeimages[i], &button_labels[i]);
+    	layer_set_frame(&button_labels[i].layer.layer, GRect(130, 10, 14, 136));
+
+	// mMake sure active mode button only visible
+	layer_set_hidden( &button_labels[i].layer.layer, (appmode==i?false:true));
+
+	// add child layers to root_layer
+    	layer_add_child(root_layer, &button_labels[i].layer.layer);
+    }
+    
+
+
+    // Set up lap time stuff, too.
+    init_lap_window();
 }
 
+void handle_deinit(AppContextRef ctx) {
+    for(int i=0;i<MAXMODE;i++)
+    	bmp_deinit_container(&button_labels[i]);
+}
 
 void draw_line(Layer *me, GContext* ctx) {
-    graphics_context_set_stroke_color(ctx, GColorWhite);
+    graphics_context_set_stroke_color(ctx, COLOUR_FOREGROUND);
     graphics_draw_line(ctx, GPoint(0, 0), GPoint(140, 0));
     graphics_draw_line(ctx, GPoint(0, 1), GPoint(140, 1));
 }
@@ -199,22 +290,10 @@ void stop_stopwatch() {
     }
 }
 
-// Milliseconds since January 1st 2012 in some timezone, discounting leap years.
-// There must be a better way to do this...
-time_t get_pebble_time() {
-    PblTm t;
-    get_time(&t);
-    time_t seconds = t.tm_sec;
-    seconds += t.tm_min * 60;
-    seconds += t.tm_hour * 3600;
-    seconds += t.tm_yday * 86400;
-    seconds += (t.tm_year - 2012) * 31536000;
-    return seconds * 1000;
-}
-
 void start_stopwatch() {
     started = true;
-
+    last_pebble_time = 0;
+    start_time = 0;
     update_timer = app_timer_send_event(app, 100, TIMER_UPDATE);
 }
 
@@ -228,24 +307,42 @@ void toggle_stopwatch_handler(ClickRecognizerRef recognizer, Window *window) {
 
 void reset_stopwatch_handler(ClickRecognizerRef recognizer, Window *window) {
     if(busy_animating) return;
-    elapsed_time = 0;
-    start_time=0;
-    last_lap_time = 0; 
-    last_lap_time = 0;
-    buzzatbluepeter=true; 
-    buzzatone=true;
+    bool is_running = started;
 
-    update_stopwatch();
+    // default to countdown time
+    countdown_time=config_time;
 
-    // Animate all the laps away.
-    busy_animating = LAP_TIME_SIZE;
-    static PropertyAnimation animations[LAP_TIME_SIZE];
-    static GRect targets[LAP_TIME_SIZE];
-    for(int i = 0; i < LAP_TIME_SIZE; ++i) {
-        shift_lap_layer(&animations[i], &lap_layers[i].layer, &targets[i], LAP_TIME_SIZE);
-        animation_schedule(&animations[i].animation);
+    switch(appmode)
+    {
+	case STOPWATCH:
+	case YACHTIMER:
+	    // if in yachtimer reset to standard times
+	    countdown_time=start_gun_time;
+	case COUNTDOWN:
+	    stop_stopwatch();
+	    buzzatbluepeter=true; 
+	    buzzatone=true;
+	    elapsed_time = 0;
+	    start_time = 0;
+	    last_lap_time = 0;
+	    last_pebble_time = 0;
+	    if(is_running) start_stopwatch();
+	    update_stopwatch();
+
+	    // Animate all the laps away.
+	    busy_animating = LAP_TIME_SIZE;
+	    static PropertyAnimation animations[LAP_TIME_SIZE];
+	    static GRect targets[LAP_TIME_SIZE];
+	    for(int i = 0; i < LAP_TIME_SIZE; ++i) {
+		shift_lap_layer(&animations[i], &lap_layers[i].layer, &targets[i], LAP_TIME_SIZE);
+		animation_schedule(&animations[i].animation);
+	    }
+	    next_lap_layer = 0;
+	    break;
+	default:
+            config_countdown(appmode,1);
+	    update_stopwatch();
     }
-    next_lap_layer = 0;
 }
 
 void lap_time_handler(ClickRecognizerRef recognizer, Window *window) {
@@ -253,94 +350,136 @@ void lap_time_handler(ClickRecognizerRef recognizer, Window *window) {
     if(started)
     {
 	    time_t t=0;
-	    if(isstopwatch)
+	    switch(appmode)
 	    {
-		t = elapsed_time - last_lap_time;
-		last_lap_time = elapsed_time;
+	    	case STOPWATCH:
+			t = elapsed_time - last_lap_time;
+			last_lap_time = elapsed_time;
+			break;
+		case YACHTIMER:
+		case COUNTDOWN:	
+			// Save when button was pressed for laptime display
+			t = countdown_time - elapsed_time; 	
+			last_lap_time = t;
+
+			if(appmode==YACHTIMER)
+			{
+
+				// Now target new gun as started if above 2 mins target 4
+				// do this even if halted
+				if(t >= switch_4or1_time)
+				{
+					// as manually set don't buzz
+					buzzatbluepeter=false;
+					elapsed_time = blue_peter_time;
+					// had to have been 60 seconds before happened
+					start_time = last_pebble_time - (start_gun_time - blue_peter_time);
+				}
+				else  // otherwise target 1 minute
+				{
+					// as manually set don't buzz
+					buzzatone=false;
+					elapsed_time = one_minute_time;
+
+					// had to have been 240 seconds before hadn
+					start_time = last_pebble_time - (start_gun_time - one_minute_time) ;
+				}
+			}
 	    }
-	    else
-	    {
-		// Save when button was pressed for laptime display
-		t = start_gun_time - elapsed_time; 	
-		last_lap_time = t;
-
-		// Now target new gun as started if above 2 mins target 4
-		// do this even if halted
-		if(t >= switch_4or1_time)
-		{
-			// as manually set don't buzz
-			buzzatbluepeter=false;
-			elapsed_time = blue_peter_time;
-			// had to have been 60 seconds before happened
-			start_time = last_pebble_time - (start_gun_time - blue_peter_time);
-		}
-		else  // otherwise target 1 minute
-		{
-			// as manually set don't buzz
-			buzzatone=false;
-			elapsed_time = one_minute_time;
-
-			// had to have been 240 seconds before hadn
-			start_time = last_pebble_time - (start_gun_time - one_minute_time) ;
-		}
-    	   }
-	   save_lap_time(t);
+	    save_lap_time(t);
+    }
+    // Update countdown if desired 
+    // Note if running adjust elapsed if stopped config
+    config_countdown(appmode,-1);
+    // force refresh if not running
+    if(!started)
+    {
+	update_stopwatch();
     }
 }
+void config_countdown(int appmode,int increment)
+{
+    int adjustnum = 0;
 
-// There must be some way of doing this besides writing our own...
-void itoa1(int num, char* buffer) {
-    const char digits[10] = "0123456789";
-    buffer[0] = digits[num % 10];
+    // even if running allow minute changes
+    switch(appmode)
+	{
+	case CNTDWNCNFGHRS:
+		adjustnum=one_minute_time * 60;
+		break;
+	// Ok so we want to lower countdown config 
+	// Down in increments of 1 minute
+	case CNTDWNCNFGMIN:
+		adjustnum=one_minute_time;
+		break;
+
+	// Seconds
+	case CNTDWNCNFGSEC:
+		adjustnum=one_second_time;
+		break;
+  	}
+
+	/* for non adjust appmodes does nothing as adjustnum is 0 */
+	time_t new_time=0;
+
+	/* if running adjust running time otherwise adjust config time */
+	if(started)
+	{
+		new_time =  elapsed_time + (increment * adjustnum );
+		/* if decrementing  stop at lowest value  */
+		if(new_time <= 0 ) new_time = elapsed_time;
+		elapsed_time = new_time;
+	}
+	else
+	{
+		new_time =  config_time + (increment * adjustnum );
+		/* if decrementing  stop at lowest value  */
+		if(new_time <= 0 ) new_time = config_time;
+		config_time = new_time;
+		countdown_time = config_time;
+
+	}
+
+
 }
-void itoa2(int num, char* buffer) {
-    const char digits[10] = "0123456789";
-    if(num > 99) {
-        buffer[0] = '9';
-        buffer[1] = '9';
-        return;
-    } else if(num > 9) {
-        buffer[0] = digits[num / 10];
-    } else {
-        buffer[0] = '0';
-    }
-    buffer[1] = digits[num % 10];
-}
+
 
 void update_stopwatch() {
     static char big_time[] = "00:00";
-    static char seconds_time[] = ":00.0";
+    static char deciseconds_time[] = ".0";
+    static char seconds_time[] = ":00";
     time_t display_time = 0;
 
     // if stop watch show elapsed else is in countdown mode
-    if(isstopwatch)
+    if(appmode==STOPWATCH)
     {
 	display_time = elapsed_time;
     }
     else
     {
 	
-	display_time = (elapsed_time > start_gun_time) ? 0:(start_gun_time - elapsed_time);
-	if(buzzatbluepeter && display_time <= blue_peter_time) 
+	display_time = (elapsed_time > countdown_time) ? 0:(countdown_time - elapsed_time);
+	if(appmode==YACHTIMER)
 	{
-		buzzatbluepeter=false;
-		vibes_double_pulse();
-	}
-	if(buzzatone && display_time <= one_minute_time) 
-	{
-		buzzatone=false;
-		vibes_double_pulse();
+		if(buzzatbluepeter && display_time <= blue_peter_time) 
+		{
+			buzzatbluepeter=false;
+			vibes_double_pulse();
+		}
+		if(buzzatone && display_time <= one_minute_time) 
+		{
+			buzzatone=false;
+			vibes_double_pulse();
+		}
 	}
 	if(display_time == 0)
 	{
 		stop_stopwatch();
 		vibes_enqueue_custom_pattern(start_pattern);
 	}
-    }
-
-
+    } 
     // Now convert to hours/minutes/seconds.
-    int hundredths = (display_time / 100) % 10;
+    int tenths = (display_time / 100) % 10;
     int seconds = (display_time / 1000) % 60;
     int minutes = (display_time / 60000) % 60;
     int hours = display_time / 3600000;
@@ -350,15 +489,22 @@ void update_stopwatch() {
         stop_stopwatch();
         return;
     }
-
-    itoa2(hours, &big_time[0]);
-    itoa2(minutes, &big_time[3]);
-    itoa2(seconds, &seconds_time[1]);
-    itoa1(hundredths, &seconds_time[4]);
+    if(hours < 1)
+    {
+        itoa2(minutes, &big_time[0]);
+        itoa2(seconds, &big_time[3]);
+        itoa1(tenths, &deciseconds_time[1]);
+    }
+    else
+    {
+        itoa2(hours, &big_time[0]);
+        itoa2(minutes, &big_time[3]);
+        itoa2(seconds, &seconds_time[1]);
+    }
 
     // Now draw the strings.
     text_layer_set_text(&big_time_layer, big_time);
-    text_layer_set_text(&seconds_time_layer, seconds_time);
+    text_layer_set_text(&seconds_time_layer, hours < 1 ? deciseconds_time : seconds_time);
 }
 
 void animation_stopped(Animation *animation, void *data) {
@@ -392,22 +538,13 @@ void save_lap_time(time_t lap_time) {
     }
 
     // Once those are done we can slide our new lap time in.
-    // First we need to generate a string.
-    int hundredths = (lap_time / 100) % 10;
-    int seconds = (lap_time / 1000) % 60;
-    int minutes = (lap_time / 60000) % 60;
-    int hours = lap_time / 3600000;
-    // Fix up our buffer
-    itoa2(hours, &lap_times[next_lap_layer][0]);
-    itoa2(minutes, &lap_times[next_lap_layer][3]);
-    itoa2(seconds, &lap_times[next_lap_layer][6]);
-    itoa1(hundredths, &lap_times[next_lap_layer][9]);
+    format_lap(lap_time, lap_times[next_lap_layer]);
 
     // Animate it
     static PropertyAnimation entry_animation;
-    static GRect origin; origin = GRect(-139, 52, 139, 26);
-    static GRect target; target = GRect(5, 52, 139, 26);
-    property_animation_init_layer_frame(&entry_animation, &lap_layers[next_lap_layer].layer, &origin, &target);
+    //static GRect origin; origin = ;
+    //static GRect target; target = ;
+    property_animation_init_layer_frame(&entry_animation, &lap_layers[next_lap_layer].layer, &GRect(-139, 52, 139, 26), &GRect(5, 52, 139, 26));
     animation_set_curve(&entry_animation.animation, AnimationCurveEaseOut);
     animation_set_delay(&entry_animation.animation, 50);
     animation_set_handlers(&entry_animation.animation, (AnimationHandlers){
@@ -416,6 +553,8 @@ void save_lap_time(time_t lap_time) {
     animation_schedule(&entry_animation.animation);
     next_lap_layer = (next_lap_layer + 1) % LAP_TIME_SIZE;
 
+    // Get it into the laps window, too.
+    store_lap_time(lap_time);
 }
 
 void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
@@ -423,10 +562,10 @@ void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
     if(cookie == TIMER_UPDATE) {
         if(started) {
             elapsed_time += 100;
-            update_timer = app_timer_send_event(ctx, 100, TIMER_UPDATE);
-	    time_t pebble_time = get_pebble_time();
-	    if(!last_pebble_time) last_pebble_time = pebble_time;
-	    if(pebble_time > last_pebble_time) {
+            // Every tick of the pebble clock, force our time back to it.
+            time_t pebble_time = get_pebble_time();
+            if(!last_pebble_time) last_pebble_time = pebble_time;
+            if(pebble_time > last_pebble_time) {
                 // If it's the first tick, instead of changing our time we calculate the correct time.
                 if(!start_time) {
                     start_time = pebble_time - elapsed_time;
@@ -435,31 +574,60 @@ void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
                 }
                 last_pebble_time = pebble_time;
             }
+            update_timer = app_timer_send_event(ctx, elapsed_time <= 3600000 ? 100 : 1000, TIMER_UPDATE);
         }
         update_stopwatch();
     }
+}
+
+void handle_display_lap_times(ClickRecognizerRef recognizer, Window *window) {
+    show_laps();
 }
 
 // Toggle stopwatch timer mode
 void toggle_mode(ClickRecognizerRef recognizer, Window *window) {
   (void)recognizer;
   (void)window;
-  isstopwatch = isstopwatch ? false:true;
+  Layer *root_layer = window_get_root_layer(window);
+  
+  // Modes are contigous so each press cycles.
+  appmode++;
+  if(appmode>=MAXMODE) 
+  {
+	appmode = 0;
+  }
+  for(int i=0;i<MAXMODE;i++) {
+	layer_set_hidden( &button_labels[i].layer.layer, (appmode==i?false:true));
+  }
+  switch(appmode)
+  {
+	case YACHTIMER:
+		countdown_time=start_gun_time;
+		break;
+	case COUNTDOWN:
+		countdown_time=config_time;
+		break;
+        default:
+		;
+  }
   update_stopwatch();
 
 }
 
 void config_provider(ClickConfig **config, Window *window) {
-    config[BUTTON_ID_SELECT]->click.handler = (ClickHandler)toggle_stopwatch_handler;
-    config[BUTTON_ID_SELECT]->long_click.handler = (ClickHandler) toggle_mode;
-    config[BUTTON_ID_UP]->click.handler = (ClickHandler)reset_stopwatch_handler;
-    config[BUTTON_ID_DOWN]->click.handler = (ClickHandler)lap_time_handler;
+    config[BUTTON_RUN]->click.handler = (ClickHandler)toggle_stopwatch_handler;
+    config[BUTTON_RUN]->long_click.handler = (ClickHandler) toggle_mode;
+    config[BUTTON_RESET]->click.handler = (ClickHandler)reset_stopwatch_handler;
+    config[BUTTON_LAP]->click.handler = (ClickHandler)lap_time_handler;
+    config[BUTTON_LAP]->long_click.handler = (ClickHandler)handle_display_lap_times;
+    config[BUTTON_LAP]->long_click.delay_ms = 700;
     (void)window;
 }
 
 void pbl_main(void *params) {
   PebbleAppHandlers handlers = {
     .init_handler = &handle_init,
+    .deinit_handler = &handle_deinit,
     .timer_handler = &handle_timer
   };
   app_event_loop(params, &handlers);

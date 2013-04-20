@@ -20,8 +20,12 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#ifndef _KBLAPS_H_
+#define _KBLAPS_H_
 
 void init_lap_window();
 void show_laps();
 void store_lap_time(time_t t);
 void clear_stored_laps();
+
+#endif
