@@ -23,5 +23,7 @@
 // as well as when stopped. Lap times/resets don't change.
 // Will work on timer/chrono flag as well.
 //
+// Now has adjustable countdown mode as well.
+//
 // Released as is at your own risk caveat emptor. Enjoy - Mike
 //
