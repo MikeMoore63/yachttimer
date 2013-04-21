@@ -25,5 +25,9 @@
 //
 // Now has adjustable countdown mode as well.
 //
+// Added watch mode so you can get to time while countdown/stopwatch is running and switch back
+//
+// Also added ability to flip face colour
+//
 // Released as is at your own risk caveat emptor. Enjoy - Mike
 //
