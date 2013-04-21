@@ -52,30 +52,22 @@
 // Will work on timer/chrono flag as well.
 //
 
-#define WHITE_ON_BLACK 
-
-#ifndef WHITE_ON_BLACK
-#define COLOUR_FOREGROUND GColorBlack
-#define COLOUR_BACKGROUND GColorWhite
-#else 
-#define COLOUR_FOREGROUND GColorWhite
-#define COLOUR_BACKGROUND GColorBlack
-#endif 
 
 
 #define MY_UUID { 0xE7, 0xB1, 0xD0, 0x1B, 0x7F, 0x1C, 0x48, 0x6A, 0x85, 0xB0, 0xDC, 0xA3, 0xD7, 0x4E, 0x7D, 0xCA }
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             4, 2, /* App version */
+             4, 3, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
 static Window window;
-AppContextRef app;
+static AppContextRef app;
 
 // Main display
 static TextLayer big_time_layer;
+static TextLayer watch_layer;
 static TextLayer seconds_time_layer;
 static Layer line_layer;
 
@@ -135,10 +127,32 @@ static bool buzzatbluepeter=true, buzzatone=true;
 #define CNTDWNCNFGHRS	3
 #define CNTDWNCNFGMIN	4
 #define CNTDWNCNFGSEC	5
-#define MAXMODE		6
+#define WATCH		6
+#define MAXMODE		7
+#define INVOFFSET	MAXMODE
 
-static int buttonmodeimages[MAXMODE];
-static BmpContainer button_labels[MAXMODE];
+// Define starting colour mode.
+#define WHITE_ON_BLACK
+
+#ifdef WHITE_ON_BLACK
+static bool white_on_black=true;
+static GColor foreground_colour = GColorWhite;
+static GColor background_colour = GColorBlack;
+// offset pointer used with app mode to work out which bit map to show.
+static int inv_offset = 0;
+#else
+static bool white_on_black=false;
+static GColor foreground_colour = GColorBlack;
+static GColor background_colour = GColorWhite;
+// offset pointer used with app mode to work out which bit map to show.
+static int inv_offset = INVOFFSET;
+#endif
+
+
+// Have inverted as second set of bitmaps
+// so use max multiplier
+static int buttonmodeimages[MAXMODE * 2];
+static BmpContainer button_labels[MAXMODE * 2];
 
 // 
 // Keep Katherine stopwatch mode
@@ -168,6 +182,8 @@ void countdown_config_handler(ClickRecognizerRef recognizer, Window *window);
 void config_provider(ClickConfig **config, Window *window);
 void handle_init(AppContextRef ctx);
 time_t time_seconds();
+void show_buttons();
+void set_layer_colours();
 void stop_stopwatch();
 void start_stopwatch();
 void toggle_stopwatch_handler(ClickRecognizerRef recognizer, Window *window);
@@ -180,14 +196,14 @@ void draw_line(Layer *me, GContext* ctx);
 void save_lap_time(time_t seconds);
 void lap_time_handler(ClickRecognizerRef recognizer, Window *window);
 void shift_lap_layer(PropertyAnimation* animation, Layer* layer, GRect* target, int distance_multiplier);
-void config_countdown(int appmode,int increment);
+void config_watch(int appmode,int increment);
 
 void handle_init(AppContextRef ctx) {
     app = ctx;
 
     window_init(&window, "Stopwatch");
     window_stack_push(&window, true /* Animated */);
-    window_set_background_color(&window, COLOUR_BACKGROUND);
+    window_set_background_color(&window, background_colour);
     window_set_fullscreen(&window, false);
 
     resource_init_current_app(&APP_RESOURCES);
@@ -205,11 +221,12 @@ void handle_init(AppContextRef ctx) {
 
     // Set up the big timer.
     text_layer_init(&big_time_layer, GRect(0, 5, 96, 35));
-    text_layer_set_background_color(&big_time_layer, COLOUR_BACKGROUND);
+    text_layer_set_background_color(&big_time_layer, background_colour);
     text_layer_set_font(&big_time_layer, big_font);
-    text_layer_set_text_color(&big_time_layer, COLOUR_FOREGROUND);
+    text_layer_set_text_color(&big_time_layer, foreground_colour);
+
     
-    // in init only have either stopwatch or yachtmode
+    // in init only have either stopwatch as count up  or other modes count downs
     // if countdown then default to 5 mins same as yacht timer anyhow
     if(appmode == STOPWATCH)
     {
@@ -223,11 +240,25 @@ void handle_init(AppContextRef ctx) {
     layer_add_child(root_layer, &big_time_layer.layer);
 
     text_layer_init(&seconds_time_layer, GRect(96, 17, 49, 35));
-    text_layer_set_background_color(&seconds_time_layer, COLOUR_BACKGROUND);
+    text_layer_set_background_color(&seconds_time_layer, background_colour);
     text_layer_set_font(&seconds_time_layer, seconds_font);
-    text_layer_set_text_color(&seconds_time_layer, COLOUR_FOREGROUND);
+    text_layer_set_text_color(&seconds_time_layer, foreground_colour);
     text_layer_set_text(&seconds_time_layer, ".0");
     layer_add_child(root_layer, &seconds_time_layer.layer);
+
+    // Set up the watch layer but hide it.
+    text_layer_init(&watch_layer, GRect(0, 12, 96+49, 35));
+    text_layer_set_background_color(&watch_layer, background_colour);
+    text_layer_set_font(&watch_layer, laps_font);
+    text_layer_set_text_color(&watch_layer, foreground_colour);
+
+    // ensure full size layer with 12 hour format.
+    text_layer_set_text(&watch_layer, "00:00:00 am");
+    text_layer_set_text_alignment(&watch_layer, GTextAlignmentLeft);
+
+    // by default hidden switch with big and little in watch mode
+    layer_set_hidden(&watch_layer.layer,true);
+    layer_add_child(root_layer, &watch_layer.layer);
 
     // Draw our nice line.
     layer_init(&line_layer, GRect(0, 45, 144, 2));
@@ -239,7 +270,7 @@ void handle_init(AppContextRef ctx) {
         text_layer_init(&lap_layers[i], GRect(-139, 52, 139, 30));
         text_layer_set_background_color(&lap_layers[i], GColorClear);
         text_layer_set_font(&lap_layers[i], laps_font);
-        text_layer_set_text_color(&lap_layers[i], COLOUR_FOREGROUND);
+        text_layer_set_text_color(&lap_layers[i], foreground_colour);
         text_layer_set_text(&lap_layers[i], lap_times[i]);
         layer_add_child(root_layer, &lap_layers[i].layer);
     }
@@ -251,14 +282,22 @@ void handle_init(AppContextRef ctx) {
     buttonmodeimages[CNTDWNCNFGHRS] = RESOURCE_ID_IMAGE_CNTDWNCNFGHRS_BUTTON_LABELS; 
     buttonmodeimages[CNTDWNCNFGMIN] = RESOURCE_ID_IMAGE_CNTDWNCNFGMIN_BUTTON_LABELS; 
     buttonmodeimages[CNTDWNCNFGSEC] = RESOURCE_ID_IMAGE_CNTDWNCNFGSEC_BUTTON_LABELS; 
+    buttonmodeimages[WATCH] = RESOURCE_ID_IMAGE_WATCH_BUTTON_LABELS; 
+    buttonmodeimages[STOPWATCH + INVOFFSET] = RESOURCE_ID_IMAGE_STOPWATCH_BUTTON_LABELSIV; 
+    buttonmodeimages[YACHTIMER + INVOFFSET] = RESOURCE_ID_IMAGE_YACHTIMER_BUTTON_LABELSIV; 
+    buttonmodeimages[COUNTDOWN + INVOFFSET] = RESOURCE_ID_IMAGE_COUNTDOWN_BUTTON_LABELSIV; 
+    buttonmodeimages[CNTDWNCNFGHRS + INVOFFSET] = RESOURCE_ID_IMAGE_CNTDWNCNFGHRS_BUTTON_LABELSIV; 
+    buttonmodeimages[CNTDWNCNFGMIN + INVOFFSET] = RESOURCE_ID_IMAGE_CNTDWNCNFGMIN_BUTTON_LABELSIV; 
+    buttonmodeimages[CNTDWNCNFGSEC + INVOFFSET] = RESOURCE_ID_IMAGE_CNTDWNCNFGSEC_BUTTON_LABELSIV; 
+    buttonmodeimages[WATCH + INVOFFSET] = RESOURCE_ID_IMAGE_WATCH_BUTTON_LABELSIV; 
 
-    // Set up button layers
-    for(int i=0;i<MAXMODE;i++) {
+    // Set up button layers normal and inverse
+    for(int i=0;i<(MAXMODE * 2) ;i++) {
     	bmp_init_container(buttonmodeimages[i], &button_labels[i]);
     	layer_set_frame(&button_labels[i].layer.layer, GRect(130, 10, 14, 136));
 
-	// mMake sure active mode button only visible
-	layer_set_hidden( &button_labels[i].layer.layer, (appmode==i?false:true));
+	// Make sure active mode button only visible
+	layer_set_hidden( &button_labels[i].layer.layer, ((appmode+inv_offset)==i?false:true));
 
 	// add child layers to root_layer
     	layer_add_child(root_layer, &button_labels[i].layer.layer);
@@ -268,6 +307,9 @@ void handle_init(AppContextRef ctx) {
 
     // Set up lap time stuff, too.
     init_lap_window();
+ 
+    // Get timer going same as stoping stop watch.
+    stop_stopwatch();
 }
 
 void handle_deinit(AppContextRef ctx) {
@@ -276,7 +318,7 @@ void handle_deinit(AppContextRef ctx) {
 }
 
 void draw_line(Layer *me, GContext* ctx) {
-    graphics_context_set_stroke_color(ctx, COLOUR_FOREGROUND);
+    graphics_context_set_stroke_color(ctx, foreground_colour);
     graphics_draw_line(ctx, GPoint(0, 0), GPoint(140, 0));
     graphics_draw_line(ctx, GPoint(0, 1), GPoint(140, 1));
 }
@@ -288,12 +330,20 @@ void stop_stopwatch() {
             update_timer = APP_TIMER_INVALID_HANDLE;
         }
     }
+    // Slow update down to once a second to save power
+    update_timer = app_timer_send_event(app, 1000, TIMER_UPDATE);
 }
 
 void start_stopwatch() {
     started = true;
     last_pebble_time = 0;
     start_time = 0;
+    // Up the resolution to do deciseconds
+    if(update_timer != APP_TIMER_INVALID_HANDLE) {
+        if(app_timer_cancel_event(app, update_timer)) {
+            update_timer = APP_TIMER_INVALID_HANDLE;
+        }
+    }
     update_timer = app_timer_send_event(app, 100, TIMER_UPDATE);
 }
 
@@ -309,16 +359,19 @@ void reset_stopwatch_handler(ClickRecognizerRef recognizer, Window *window) {
     if(busy_animating) return;
     bool is_running = started;
 
-    // default to countdown time
-    countdown_time=config_time;
+    //  if reset what to  reset too
+    // moved this as now have watch mode and reset won't do anything in watch mode
+    // instead allow inverting is the plan
+    int reset_time = config_time;
 
     switch(appmode)
     {
 	case STOPWATCH:
 	case YACHTIMER:
 	    // if in yachtimer reset to standard times
-	    countdown_time=start_gun_time;
+	    reset_time=start_gun_time;
 	case COUNTDOWN:
+            countdown_time = reset_time ;
 	    stop_stopwatch();
 	    buzzatbluepeter=true; 
 	    buzzatone=true;
@@ -340,8 +393,8 @@ void reset_stopwatch_handler(ClickRecognizerRef recognizer, Window *window) {
 	    next_lap_layer = 0;
 	    break;
 	default:
-            config_countdown(appmode,1);
-	    update_stopwatch();
+	    // if not in config mode won't do anything which makes this easy
+            config_watch(appmode,1);
     }
 }
 
@@ -355,6 +408,7 @@ void lap_time_handler(ClickRecognizerRef recognizer, Window *window) {
 	    	case STOPWATCH:
 			t = elapsed_time - last_lap_time;
 			last_lap_time = elapsed_time;
+	    		save_lap_time(t);
 			break;
 		case YACHTIMER:
 		case COUNTDOWN:	
@@ -385,19 +439,46 @@ void lap_time_handler(ClickRecognizerRef recognizer, Window *window) {
 					start_time = last_pebble_time - (start_gun_time - one_minute_time) ;
 				}
 			}
+	    		save_lap_time(t);
 	    }
-	    save_lap_time(t);
     }
     // Update countdown if desired 
     // Note if running adjust elapsed if stopped config
-    config_countdown(appmode,-1);
-    // force refresh if not running
-    if(!started)
-    {
-	update_stopwatch();
-    }
+    // does nothing if not in config mode.
+    config_watch(appmode,-1);
+
+    // as timer always going will naturally update
 }
-void config_countdown(int appmode,int increment)
+void set_layer_colours()
+{
+	if(white_on_black){
+		foreground_colour = GColorWhite;
+		background_colour = GColorBlack;
+		inv_offset = 0;
+	}
+	else
+	{
+		foreground_colour = GColorBlack;
+		background_colour = GColorWhite;
+		// offset pointer used with app mode to work out which bit map to show.
+		inv_offset = INVOFFSET;
+	}
+	
+    text_layer_set_background_color(&big_time_layer, background_colour);
+    text_layer_set_text_color(&big_time_layer, foreground_colour);
+    text_layer_set_background_color(&seconds_time_layer, background_colour);
+    text_layer_set_text_color(&seconds_time_layer, foreground_colour);
+    text_layer_set_background_color(&watch_layer, background_colour);
+    text_layer_set_text_color(&watch_layer, foreground_colour);
+    // Background is clear so don't need to set it.
+    for(int i = 0; i < LAP_TIME_SIZE; ++i) {
+        text_layer_set_text_color(&lap_layers[i], foreground_colour);
+    }
+    layer_mark_dirty(&line_layer);
+    window_set_background_color(&window, background_colour);
+    show_buttons();
+}
+void config_watch(int appmode,int increment)
 {
     int adjustnum = 0;
 
@@ -416,6 +497,15 @@ void config_countdown(int appmode,int increment)
 	// Seconds
 	case CNTDWNCNFGSEC:
 		adjustnum=one_second_time;
+		break;
+
+	// Allow everything to invert
+	case WATCH:
+		// Toggle mode
+		white_on_black = white_on_black?false:true;
+		inv_offset = white_on_black ? 0:INVOFFSET;
+		// Do the colour on the layers
+		set_layer_colours();
 		break;
   	}
 
@@ -445,38 +535,61 @@ void config_countdown(int appmode,int increment)
 
 
 void update_stopwatch() {
+    // max format of %r time format only support %r and %T
+    // http://www.cplusplus.com/reference/ctime/strftime/
+    // is formats supported
+    static char clock[] = "00:00:00 am";
+    PblTm timeforformat;
     static char big_time[] = "00:00";
     static char deciseconds_time[] = ".0";
     static char seconds_time[] = ":00";
     time_t display_time = 0;
 
-    // if stop watch show elapsed else is in countdown mode
-    if(appmode==STOPWATCH)
+    //
+
+    switch(appmode)
     {
-	display_time = elapsed_time;
-    }
-    else
-    {
-	
-	display_time = (elapsed_time > countdown_time) ? 0:(countdown_time - elapsed_time);
-	if(appmode==YACHTIMER)
-	{
-		if(buzzatbluepeter && display_time <= blue_peter_time) 
+	// Only do this in watch mode 
+	// As timer is fime grained avoiding call
+	// That could go to hardware
+	case WATCH:
+		get_time(&timeforformat);
+		// formt time
+		if ( clock_is_24h_style())
 		{
-			buzzatbluepeter=false;
-			vibes_double_pulse();
+			string_format_time(clock, sizeof(clock) , "%T", &timeforformat);	
 		}
-		if(buzzatone && display_time <= one_minute_time) 
+		else
 		{
-			buzzatone=false;
-			vibes_double_pulse();
+			string_format_time(clock, sizeof(clock) , "%r", &timeforformat);	
 		}
-	}
-	if(display_time == 0)
-	{
-		stop_stopwatch();
-		vibes_enqueue_custom_pattern(start_pattern);
-	}
+    		text_layer_set_text(&watch_layer, clock);
+		break;
+	case STOPWATCH:
+		// assume timer does not update elapsed time if not running
+		display_time = elapsed_time;
+		break;
+	// Some form of countdown still do logic 
+	default:
+		display_time = (elapsed_time > countdown_time) ? 0:(countdown_time - elapsed_time);
+		if(appmode==YACHTIMER)
+		{
+			if(buzzatbluepeter && display_time <= blue_peter_time) 
+			{
+				buzzatbluepeter=false;
+				vibes_double_pulse();
+			}
+			if(buzzatone && display_time <= one_minute_time) 
+			{
+				buzzatone=false;
+				vibes_double_pulse();
+			}
+		}
+		if(display_time == 0)
+		{
+			stop_stopwatch();
+			vibes_enqueue_custom_pattern(start_pattern);
+		}
     } 
     // Now convert to hours/minutes/seconds.
     int tenths = (display_time / 100) % 10;
@@ -486,8 +599,8 @@ void update_stopwatch() {
 
     // We can't fit three digit hours, so stop timing here.
     if(hours > 99) {
-        stop_stopwatch();
-        return;
+	stop_stopwatch();
+	return;
     }
     if(hours < 1)
     {
@@ -501,7 +614,7 @@ void update_stopwatch() {
         itoa2(minutes, &big_time[3]);
         itoa2(seconds, &seconds_time[1]);
     }
-
+	
     // Now draw the strings.
     text_layer_set_text(&big_time_layer, big_time);
     text_layer_set_text(&seconds_time_layer, hours < 1 ? deciseconds_time : seconds_time);
@@ -560,11 +673,10 @@ void save_lap_time(time_t lap_time) {
 void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
     (void)handle;
     if(cookie == TIMER_UPDATE) {
+        time_t pebble_time = get_pebble_time();
+        if(!last_pebble_time) last_pebble_time = pebble_time;
         if(started) {
             elapsed_time += 100;
-            // Every tick of the pebble clock, force our time back to it.
-            time_t pebble_time = get_pebble_time();
-            if(!last_pebble_time) last_pebble_time = pebble_time;
             if(pebble_time > last_pebble_time) {
                 // If it's the first tick, instead of changing our time we calculate the correct time.
                 if(!start_time) {
@@ -572,16 +684,27 @@ void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
                 } else {
                     elapsed_time = pebble_time - start_time;
                 }
-                last_pebble_time = pebble_time;
             }
             update_timer = app_timer_send_event(ctx, elapsed_time <= 3600000 ? 100 : 1000, TIMER_UPDATE);
         }
+	else
+	{
+            update_timer = app_timer_send_event(ctx, 1000, TIMER_UPDATE);
+	}
+        last_pebble_time = pebble_time;
         update_stopwatch();
     }
 }
 
 void handle_display_lap_times(ClickRecognizerRef recognizer, Window *window) {
     show_laps();
+}
+void show_buttons()
+{
+
+  for(int i=0;i<(MAXMODE*2);i++) {
+	layer_set_hidden( &button_labels[i].layer.layer, ((appmode+inv_offset)==i?false:true));
+  }
 }
 
 // Toggle stopwatch timer mode
@@ -590,15 +713,14 @@ void toggle_mode(ClickRecognizerRef recognizer, Window *window) {
   (void)window;
   Layer *root_layer = window_get_root_layer(window);
   
+
   // Modes are contigous so each press cycles.
   appmode++;
   if(appmode>=MAXMODE) 
   {
 	appmode = 0;
   }
-  for(int i=0;i<MAXMODE;i++) {
-	layer_set_hidden( &button_labels[i].layer.layer, (appmode==i?false:true));
-  }
+  show_buttons();
   switch(appmode)
   {
 	case YACHTIMER:
@@ -609,6 +731,20 @@ void toggle_mode(ClickRecognizerRef recognizer, Window *window) {
 		break;
         default:
 		;
+  }
+ 
+  //get time being shown and not countdown when move to WATCH mode
+  if(appmode==WATCH)
+  {
+	  layer_set_hidden(&watch_layer.layer,false);
+	  layer_set_hidden(&big_time_layer.layer,true);
+	  layer_set_hidden(&seconds_time_layer.layer,true);
+  }
+  else
+  {
+	  layer_set_hidden(&watch_layer.layer,true);
+	  layer_set_hidden(&big_time_layer.layer,false);
+	  layer_set_hidden(&seconds_time_layer.layer,false);
   }
   update_stopwatch();
 

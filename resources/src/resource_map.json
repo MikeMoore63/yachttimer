@@ -5,19 +5,19 @@
     [
         {
             "type": "font",
-            "characterRegex": "[:0-9.]",
+            "characterRegex": "[:0-9]",
             "defName": "FONT_DEJAVU_SANS_BOLD_SUBSET_30",
             "file": "fonts/DejaVuSans-Bold.ttf"
         },
         {
             "type": "font",
-            "characterRegex": "[:0-9.]",
+            "characterRegex": "[:0-9. )Nolapsyet]",
             "defName": "FONT_DEJAVU_SANS_SUBSET_18",
             "file": "fonts/DejaVuSans.ttf"
         },
         {
             "type": "font",
-            "characterRegex": "[:0-9.]",
+            "characterRegex": "[:0-9. ampAMP]", 
             "defName": "FONT_DEJAVU_SANS_SUBSET_22",
             "file": "fonts/DejaVuSans.ttf"
         },
@@ -25,6 +25,76 @@
             "type": "png",
             "defName": "IMAGE_MENU_ICON",
             "file": "images/yachttimer.png"
+        },
+        {
+            "type": "png",
+            "defName": "IMAGE_STOPWATCH_BUTTON_LABELS",
+            "file": "images/swbuttons.png"
+        },
+        {
+            "type": "png",
+            "defName": "IMAGE_YACHTIMER_BUTTON_LABELS",
+            "file": "images/ytbuttons.png"
+        },
+        {
+            "type": "png",
+            "defName": "IMAGE_COUNTDOWN_BUTTON_LABELS",
+            "file": "images/cdbuttons.png"
+        },
+        {
+            "type": "png",
+            "defName": "IMAGE_CNTDWNCNFGHRS_BUTTON_LABELS",
+            "file": "images/cdchbuttons.png"
+        },
+	{
+            "type": "png",
+            "defName": "IMAGE_CNTDWNCNFGMIN_BUTTON_LABELS",
+            "file": "images/cdcmbuttons.png"
+        },
+        {
+            "type": "png",
+            "defName": "IMAGE_CNTDWNCNFGSEC_BUTTON_LABELS",
+            "file": "images/cdcsbuttons.png"
+        },
+        {
+            "type": "png",
+            "defName": "IMAGE_STOPWATCH_BUTTON_LABELSIV",
+            "file": "images/swbuttonsiv.png"
+        },
+        {
+            "type": "png",
+            "defName": "IMAGE_YACHTIMER_BUTTON_LABELSIV",
+            "file": "images/ytbuttonsiv.png"
+        },
+        {
+            "type": "png",
+            "defName": "IMAGE_COUNTDOWN_BUTTON_LABELSIV",
+            "file": "images/cdbuttonsiv.png"
+        },
+        {
+            "type": "png",
+            "defName": "IMAGE_CNTDWNCNFGHRS_BUTTON_LABELSIV",
+            "file": "images/cdchbuttonsiv.png"
+        },
+	{
+            "type": "png",
+            "defName": "IMAGE_CNTDWNCNFGMIN_BUTTON_LABELSIV",
+            "file": "images/cdcmbuttonsiv.png"
+        },
+        {
+            "type": "png",
+            "defName": "IMAGE_CNTDWNCNFGSEC_BUTTON_LABELSIV",
+            "file": "images/cdcsbuttonsiv.png"
+        },
+        {
+            "type": "png",
+            "defName": "IMAGE_WATCH_BUTTON_LABELS",
+            "file": "images/wbuttons.png"
+        },
+        {
+            "type": "png",
+            "defName": "IMAGE_WATCH_BUTTON_LABELSIV",
+            "file": "images/wbuttonsiv.png"
         }
     ]
 }
