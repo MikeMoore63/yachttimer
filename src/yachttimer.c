@@ -58,7 +58,7 @@
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             4, 5, /* App version */
+             4, 6, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
@@ -612,11 +612,11 @@ void update_stopwatch() {
 			string_format_time(time, sizeof(time) , "%I:%M", &timeforformat);	
 			string_format_time(ampm, sizeof(ampm) , "%p", &timeforformat);	
 	
-			// Don't bother redrawing if correct
-			if(strcmp(ampm,text_layer_get_text(&watch_layer_ampm)))
-			{
-				text_layer_set_text(&watch_layer_ampm, ampm);
-			}
+		}
+		// Don't bother redrawing if correct
+		if(strcmp(ampm,text_layer_get_text(&watch_layer_ampm)))
+		{
+			text_layer_set_text(&watch_layer_ampm, ampm);
 		}
 
 		// Don't bother redrawing if correct
