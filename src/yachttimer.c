@@ -58,7 +58,7 @@
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             4, 3, /* App version */
+             4, 4, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
@@ -167,6 +167,7 @@ const VibePattern start_pattern = {
 // Global animation lock. As long as we only try doing things while
 // this is zero, we shouldn't crash the watch.
 static int busy_animating = 0;
+static GFont big_font, seconds_font, laps_font;
 
 #define TIMER_UPDATE 1
 #define FONT_BIG_TIME RESOURCE_ID_FONT_DEJAVU_SANS_BOLD_SUBSET_30
@@ -212,9 +213,9 @@ void handle_init(AppContextRef ctx) {
     window_set_click_config_provider(&window, (ClickConfigProvider) config_provider);
 
     // Get our fonts
-    GFont big_font = fonts_load_custom_font(resource_get_handle(FONT_BIG_TIME));
-    GFont seconds_font = fonts_load_custom_font(resource_get_handle(FONT_SECONDS));
-    GFont laps_font = fonts_load_custom_font(resource_get_handle(FONT_LAPS));
+    big_font = fonts_load_custom_font(resource_get_handle(FONT_BIG_TIME));
+    seconds_font = fonts_load_custom_font(resource_get_handle(FONT_SECONDS));
+    laps_font = fonts_load_custom_font(resource_get_handle(FONT_LAPS));
 
     // Root layer
     Layer *root_layer = window_get_root_layer(&window);
@@ -313,8 +314,11 @@ void handle_init(AppContextRef ctx) {
 }
 
 void handle_deinit(AppContextRef ctx) {
-    for(int i=0;i<MAXMODE;i++)
+    for(int i=0;i<(MAXMODE*2);i++)
     	bmp_deinit_container(&button_labels[i]);
+    fonts_unload_custom_font(big_font);
+    fonts_unload_custom_font(seconds_font);
+    fonts_unload_custom_font(laps_font);
 }
 
 void draw_line(Layer *me, GContext* ctx) {
