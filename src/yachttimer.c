@@ -58,7 +58,7 @@
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             4, 4, /* App version */
+             4, 5, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
@@ -67,7 +67,9 @@ static AppContextRef app;
 
 // Main display
 static TextLayer big_time_layer;
-static TextLayer watch_layer;
+static TextLayer watch_layer_date;
+static TextLayer watch_layer_timebig;
+static TextLayer watch_layer_ampm;
 static TextLayer seconds_time_layer;
 static Layer line_layer;
 
@@ -248,18 +250,46 @@ void handle_init(AppContextRef ctx) {
     layer_add_child(root_layer, &seconds_time_layer.layer);
 
     // Set up the watch layer but hide it.
-    text_layer_init(&watch_layer, GRect(0, 12, 96+49, 35));
-    text_layer_set_background_color(&watch_layer, background_colour);
-    text_layer_set_font(&watch_layer, laps_font);
-    text_layer_set_text_color(&watch_layer, foreground_colour);
+    text_layer_init(&watch_layer_date, GRect(0, 12, 96+49, 35));
+    text_layer_set_background_color(&watch_layer_date, background_colour);
+    text_layer_set_font(&watch_layer_date, laps_font);
+    text_layer_set_text_color(&watch_layer_date, foreground_colour);
 
     // ensure full size layer with 12 hour format.
-    text_layer_set_text(&watch_layer, "00:00:00 am");
-    text_layer_set_text_alignment(&watch_layer, GTextAlignmentLeft);
+    text_layer_set_text(&watch_layer_date, "September 31");
+    text_layer_set_text_alignment(&watch_layer_date, GTextAlignmentLeft);
 
     // by default hidden switch with big and little in watch mode
-    layer_set_hidden(&watch_layer.layer,true);
-    layer_add_child(root_layer, &watch_layer.layer);
+    layer_set_hidden(&watch_layer_date.layer,true);
+    layer_add_child(root_layer, &watch_layer_date.layer);
+
+    // Set up the watch layer but hide it.
+    text_layer_init(&watch_layer_timebig, GRect(0, 52, 96, 35));
+    text_layer_set_background_color(&watch_layer_timebig, background_colour);
+    text_layer_set_font(&watch_layer_timebig, big_font);
+    text_layer_set_text_color(&watch_layer_timebig, foreground_colour);
+
+    // ensure full size layer with 12 hour format.
+    text_layer_set_text(&watch_layer_timebig, "00:00");
+    text_layer_set_text_alignment(&watch_layer_timebig, GTextAlignmentLeft);
+
+    // by default hidden switch with big and little in watch mode
+    layer_set_hidden(&watch_layer_timebig.layer,true);
+    layer_add_child(root_layer, &watch_layer_timebig.layer);
+
+    // Set up the watch layer but hide it. 
+    text_layer_init(&watch_layer_ampm, GRect(96, 60, 49, 35));
+    text_layer_set_background_color(&watch_layer_ampm, background_colour);
+    text_layer_set_font(&watch_layer_ampm, laps_font);
+    text_layer_set_text_color(&watch_layer_ampm, foreground_colour);
+
+    // ensure full size layer with  am/pm
+    text_layer_set_text(&watch_layer_ampm, "AM");
+    text_layer_set_text_alignment(&watch_layer_ampm, GTextAlignmentLeft);
+
+    // by default hidden switch with big and little in watch mode
+    layer_set_hidden(&watch_layer_ampm.layer,true);
+    layer_add_child(root_layer, &watch_layer_ampm.layer);
 
     // Draw our nice line.
     layer_init(&line_layer, GRect(0, 45, 144, 2));
@@ -472,8 +502,12 @@ void set_layer_colours()
     text_layer_set_text_color(&big_time_layer, foreground_colour);
     text_layer_set_background_color(&seconds_time_layer, background_colour);
     text_layer_set_text_color(&seconds_time_layer, foreground_colour);
-    text_layer_set_background_color(&watch_layer, background_colour);
-    text_layer_set_text_color(&watch_layer, foreground_colour);
+    text_layer_set_background_color(&watch_layer_date, background_colour);
+    text_layer_set_text_color(&watch_layer_date, foreground_colour);
+    text_layer_set_background_color(&watch_layer_timebig, background_colour);
+    text_layer_set_text_color(&watch_layer_timebig, foreground_colour);
+    text_layer_set_background_color(&watch_layer_ampm, background_colour);
+    text_layer_set_text_color(&watch_layer_ampm, foreground_colour);
     // Background is clear so don't need to set it.
     for(int i = 0; i < LAP_TIME_SIZE; ++i) {
         text_layer_set_text_color(&lap_layers[i], foreground_colour);
@@ -542,7 +576,9 @@ void update_stopwatch() {
     // max format of %r time format only support %r and %T
     // http://www.cplusplus.com/reference/ctime/strftime/
     // is formats supported
-    static char clock[] = "00:00:00 am";
+    static char date[] = "Mon Sep 31";
+    static char time[] = "00:00";
+    static char ampm[] = "  ";
     PblTm timeforformat;
     static char big_time[] = "00:00";
     static char deciseconds_time[] = ".0";
@@ -558,16 +594,36 @@ void update_stopwatch() {
 	// That could go to hardware
 	case WATCH:
 		get_time(&timeforformat);
+		string_format_time(date, sizeof(date) , "%a %h %e", &timeforformat);	
+
+		// Don't bother redrawing if correct
+		if(strcmp(date,text_layer_get_text(&watch_layer_date)))
+		{
+    			text_layer_set_text(&watch_layer_date, date);
+		}
+		
 		// formt time
 		if ( clock_is_24h_style())
 		{
-			string_format_time(clock, sizeof(clock) , "%T", &timeforformat);	
+		 	string_format_time(time, sizeof(time) , "%R", &timeforformat);	
 		}
 		else
 		{
-			string_format_time(clock, sizeof(clock) , "%r", &timeforformat);	
+			string_format_time(time, sizeof(time) , "%I:%M", &timeforformat);	
+			string_format_time(ampm, sizeof(ampm) , "%p", &timeforformat);	
+	
+			// Don't bother redrawing if correct
+			if(strcmp(ampm,text_layer_get_text(&watch_layer_ampm)))
+			{
+				text_layer_set_text(&watch_layer_ampm, ampm);
+			}
 		}
-    		text_layer_set_text(&watch_layer, clock);
+
+		// Don't bother redrawing if correct
+		if(strcmp(time,text_layer_get_text(&watch_layer_timebig)))
+		{
+    			text_layer_set_text(&watch_layer_timebig, time);
+		}
 		break;
 	case STOPWATCH:
 		// assume timer does not update elapsed time if not running
@@ -740,15 +796,27 @@ void toggle_mode(ClickRecognizerRef recognizer, Window *window) {
   //get time being shown and not countdown when move to WATCH mode
   if(appmode==WATCH)
   {
-	  layer_set_hidden(&watch_layer.layer,false);
+	  layer_set_hidden(&watch_layer_date.layer,false);
+	  layer_set_hidden(&watch_layer_timebig.layer,false);
+	  layer_set_hidden(&watch_layer_ampm.layer,false);
 	  layer_set_hidden(&big_time_layer.layer,true);
 	  layer_set_hidden(&seconds_time_layer.layer,true);
+	  // Background is clear so don't need to set it.
+	  for(int i = 0; i < LAP_TIME_SIZE; ++i) {
+		layer_set_hidden(&lap_layers[i].layer, true);
+	  }
   }
   else
   {
-	  layer_set_hidden(&watch_layer.layer,true);
+	  layer_set_hidden(&watch_layer_date.layer,true);
+	  layer_set_hidden(&watch_layer_timebig.layer,true);
+	  layer_set_hidden(&watch_layer_ampm.layer,true);
 	  layer_set_hidden(&big_time_layer.layer,false);
 	  layer_set_hidden(&seconds_time_layer.layer,false);
+	  // Background is clear so don't need to set it.
+	  for(int i = 0; i < LAP_TIME_SIZE; ++i) {
+		layer_set_hidden(&lap_layers[i].layer, false);
+	  }
   }
   update_stopwatch();
 
