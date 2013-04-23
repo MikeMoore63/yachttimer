@@ -1,4 +1,4 @@
-/*
+ /*
  * Pebble Stopwatch - the big, ugly file.
  * Copyright (C) 2013 Katharine Berry
  * 
@@ -58,7 +58,7 @@
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             4, 7, /* App version */
+             4, 8, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
@@ -159,6 +159,8 @@ static BmpContainer button_labels[MAXMODE * 2];
 // 
 // Keep Katherine stopwatch mode
 static int appmode = YACHTIMER;
+static int startappmode = YACHTIMER;
+static GRect savelayerpos1, savelayerpos2;
 
 // Custom vibration pattern
 const VibePattern start_pattern = {
@@ -333,6 +335,9 @@ void handle_init(AppContextRef ctx) {
 	// add child layers to root_layer
     	layer_add_child(root_layer, &button_labels[i].layer.layer);
     }
+    // save position of stop watch / timer
+    savelayerpos1 = layer_get_frame(&big_time_layer.layer);
+    savelayerpos2 = layer_get_frame(&seconds_time_layer.layer);;
     
 
 
@@ -372,6 +377,17 @@ void start_stopwatch() {
     started = true;
     last_pebble_time = 0;
     start_time = 0;
+
+    // default start mode
+    startappmode = STOPWATCH;
+
+    // if not stopwatch start
+    switch(appmode)
+    {
+	case YACHTIMER:
+	case COUNTDOWN:
+		startappmode = appmode;
+    }
     // Up the resolution to do deciseconds
     if(update_timer != APP_TIMER_INVALID_HANDLE) {
         if(app_timer_cancel_event(app, update_timer)) {
@@ -579,13 +595,15 @@ void update_stopwatch() {
     static char date[] = "Mon Sep 31";
     static char time[] = "00:00";
     static char ampm[] = "  ";
+
+    // default display using appmode but if in watch mode display in started mode.
+    int stopwatchappmode = appmode;
     PblTm timeforformat;
     static char big_time[] = "00:00";
     static char deciseconds_time[] = ".0";
     static char seconds_time[] = ":00";
     time_t display_time = 0;
 
-    //
 
     switch(appmode)
     {
@@ -624,15 +642,23 @@ void update_stopwatch() {
 		{
     			text_layer_set_text(&watch_layer_timebig, time);
 		}
-		break;
+	        stopwatchappmode = startappmode;
+	//  Some interesting implied logic as default fall through is some form of countdown in config mode
+        // as in config stopwatch appmode is left as is
+    }
+    switch (stopwatchappmode)
+    {
+
 	case STOPWATCH:
 		// assume timer does not update elapsed time if not running
 		display_time = elapsed_time;
 		break;
 	// Some form of countdown still do logic 
+	// So even config is a countdown as order of modes is releavnt last mode seen by user was countdown
 	default:
 		display_time = (elapsed_time > countdown_time) ? 0:(countdown_time - elapsed_time);
-		if(appmode==YACHTIMER)
+		// either started in yacht mode or running in yachtmode now
+		if(stopwatchappmode==YACHTIMER)
 		{
 			if(buzzatbluepeter && display_time <= blue_peter_time) 
 			{
@@ -645,10 +671,19 @@ void update_stopwatch() {
 				vibes_double_pulse();
 			}
 		}
-		if(display_time == 0)
+		if(display_time <= 0)
 		{
-			stop_stopwatch();
-			vibes_enqueue_custom_pattern(start_pattern);
+			// if started in countdown mode stop or if in countdown mode
+			switch(stopwatchappmode)
+			{
+				case YACHTIMER:
+				case COUNTDOWN:
+					stop_stopwatch();
+			}
+			// Only at exact countdown vinrate
+			if(display_time == 0) vibes_enqueue_custom_pattern(start_pattern);
+			// make sure no negatve times
+			display_time=0;
 		}
     } 
     // Now convert to hours/minutes/seconds.
@@ -769,56 +804,71 @@ void show_buttons()
 
 // Toggle stopwatch timer mode
 void toggle_mode(ClickRecognizerRef recognizer, Window *window) {
-  (void)recognizer;
-  (void)window;
-  Layer *root_layer = window_get_root_layer(window);
-  
+	  (void)recognizer;
+	  (void)window;
+	  Layer *root_layer = window_get_root_layer(window);
+	  
 
-  // Modes are contigous so each press cycles.
-  appmode++;
-  if(appmode>=MAXMODE) 
-  {
-	appmode = 0;
-  }
-  show_buttons();
-  switch(appmode)
-  {
-	case YACHTIMER:
-		countdown_time=start_gun_time;
-		break;
-	case COUNTDOWN:
-		countdown_time=config_time;
-		break;
-        default:
-		;
-  }
- 
-  //get time being shown and not countdown when move to WATCH mode
-  if(appmode==WATCH)
-  {
-	  layer_set_hidden(&watch_layer_date.layer,false);
-	  layer_set_hidden(&watch_layer_timebig.layer,false);
-	  layer_set_hidden(&watch_layer_ampm.layer,false);
-	  layer_set_hidden(&big_time_layer.layer,true);
-	  layer_set_hidden(&seconds_time_layer.layer,true);
-	  // Background is clear so don't need to set it.
-	  for(int i = 0; i < LAP_TIME_SIZE; ++i) {
-		layer_set_hidden(&lap_layers[i].layer, true);
+	  // Modes are contigous so each press cycles.
+	  appmode++;
+	  if(appmode>=MAXMODE) 
+	  {
+		appmode = 0;
 	  }
-  }
-  else
-  {
-	  layer_set_hidden(&watch_layer_date.layer,true);
-	  layer_set_hidden(&watch_layer_timebig.layer,true);
-	  layer_set_hidden(&watch_layer_ampm.layer,true);
-	  layer_set_hidden(&big_time_layer.layer,false);
-	  layer_set_hidden(&seconds_time_layer.layer,false);
-	  // Background is clear so don't need to set it.
-	  for(int i = 0; i < LAP_TIME_SIZE; ++i) {
-		layer_set_hidden(&lap_layers[i].layer, false);
+	  show_buttons();
+	  switch(appmode)
+	  {
+		case YACHTIMER:
+			countdown_time=start_gun_time;
+			break;
+		case COUNTDOWN:
+			countdown_time=config_time;
+			break;
+		default:
+			;
 	  }
-  }
-  update_stopwatch();
+	 
+	  //get time being shown and not countdown when move to WATCH mode
+	  if(appmode==WATCH)
+	  {
+		  layer_set_hidden(&watch_layer_date.layer,false);
+		  layer_set_hidden(&watch_layer_timebig.layer,false);
+		  layer_set_hidden(&watch_layer_ampm.layer,false);
+
+		  // Hide stopwatch/countdown if not started
+		  if(!started)		
+		  {
+		  	layer_set_hidden(&big_time_layer.layer,true);
+		  	layer_set_hidden(&seconds_time_layer.layer,true);
+		  }
+		  // Background is clear so don't need to set it.
+		  for(int i = 0; i < LAP_TIME_SIZE; ++i) {
+			layer_set_hidden(&lap_layers[i].layer, true);
+		  }
+		  // save position of stop watch / timer
+		  savelayerpos1 = layer_get_frame(&big_time_layer.layer);
+		  savelayerpos2 = layer_get_frame(&seconds_time_layer.layer);;
+
+		  // Now move stopwatch/timer mode started will be used as default
+		  layer_set_frame(&big_time_layer.layer,GRect(0,98,96,35));
+		  layer_set_frame(&seconds_time_layer.layer,GRect(96,110,49,35));
+	  }
+	  else
+	  {
+		  layer_set_hidden(&watch_layer_date.layer,true);
+		  layer_set_hidden(&watch_layer_timebig.layer,true);
+		  layer_set_hidden(&watch_layer_ampm.layer,true);
+		  layer_set_hidden(&big_time_layer.layer,false);
+		  layer_set_hidden(&seconds_time_layer.layer,false);
+		  // Background is clear so don't need to set it.
+		  for(int i = 0; i < LAP_TIME_SIZE; ++i) {
+			layer_set_hidden(&lap_layers[i].layer, false);
+		  }
+		  // save position of stop watch / timer
+		  layer_set_frame(&big_time_layer.layer,savelayerpos1);
+		  layer_set_frame(&seconds_time_layer.layer,savelayerpos2);
+	  }
+	  update_stopwatch();
 
 }
 
