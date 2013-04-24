@@ -17,7 +17,7 @@
         },
         {
             "type": "font",
-            "characterRegex": "[:0-9. JFMASONDTWabceghilmnoprstuvyAMP]", 
+            "characterRegex": "[:0-9. JFMASONDTWabcdeghilmnoprstuvyAMP]", 
             "defName": "FONT_DEJAVU_SANS_SUBSET_22",
             "file": "fonts/DejaVuSans.ttf"
         },

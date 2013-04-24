@@ -58,7 +58,7 @@
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             4, 8, /* App version */
+             4, 9, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
