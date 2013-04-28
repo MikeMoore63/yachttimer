@@ -144,7 +144,7 @@ theTimeEventType yachtimer_getEvent(YachtTimer *myTimer);
 theTimeEventType yachtimer_triggerEvent(YachtTimer *myTimer);
 bool yachtimer_countdownOverruning(YachtTimer *myTimer);
 
-// A general method to convert times in milliseconds to PblTm 
+// A general method to convert times in seconds to PblTm 
 // useful as then can use time format and even logic for watches
 // To display stop watches.
 void yachtimer_setPblTime(PblTm *pblTm,time_t toConvert);
