@@ -24,8 +24,8 @@
 #ifndef _MMYACHTIMERMODEL_H_
 #define _MMYACHTIMERMODEL_H_
 #include "pebble_os.h"
-#include "laps.h"
-#include "common.h"
+/* #include "laps.h"
+#include "common.h" */
 
 //
 // Stop watch timer based upon stop watch atimer code from Katherine Berry so many thanks to Katherine

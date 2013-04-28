@@ -26,8 +26,8 @@
 #include "pebble_app.h"
 #include "pebble_fonts.h"
 
-#include "laps.h"
-#include "common.h"
+/* #include "laps.h"
+#include "common.h" */
 #include "yachtimermodel.h"
 
 // default days in month

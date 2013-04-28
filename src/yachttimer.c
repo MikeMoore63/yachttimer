@@ -26,6 +26,8 @@
 
 // What does most of the work
 #include "yachtimermodel.h"
+#include "laps.h"
+#include "common.h"
 
 
 
