@@ -5,7 +5,7 @@
     [
         {
             "type": "font",
-            "characterRegex": "[:0-9]",
+            "characterRegex": "[:0-9.]",
             "defName": "FONT_DEJAVU_SANS_BOLD_SUBSET_30",
             "file": "fonts/DejaVuSans-Bold.ttf"
         },

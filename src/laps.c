@@ -104,7 +104,7 @@ void store_lap_time(time_t lap_time) {
     }
     itoa2(++total_laps, &lap_text[0][0]);
     if(lap_text[0][0] == '0') lap_text[0][0] = ' ';
-    format_lap(lap_time, &lap_text[0][4]);
+    format_lap(lap_time, &lap_text[0][4],LAP_STRING_LENGTH);
     text_layer_set_text(&lap_layers[0], lap_text[0]);
 }
 

@@ -19,38 +19,33 @@
  * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
+// Above exists for original file below for all the stuff I added
+ /*
+ * Pebble yActTimer - the big, ugly file.
+ * Copyright (C) 2013 Mike Moore 
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
 #include "pebble_os.h"
 #include "pebble_app.h"
 #include "pebble_fonts.h"
+#include "yachtimermodel.h"
 
-#include "laps.h"
-#include "common.h"
-// 
-// Stop watch timer based upon stop watch atimer code from Katherine Berry so many thanks to Katherine
-// for a starting set of code.
-//
-// Aim of this is to have stop watch plus a countdown timer.
-//
-// Aim of countdown timer is to provide timier facilities for yacht racing
-// Normally 5 mins for first gun, 4 minute gun 1 minute and then start.
-// read more at link below.
-//
-// http://en.wikipedia.org/wiki/Racing_Rules_of_Sailing#Start_signal
-//
-// In countdown mode lap timer targets next rounded timer down or up. So if at anything below 5:00 
-// would reset to 4:00
-// 
-// Anything below 4:00 and above 2:00 would be 4:00 if below 2:00 would be 1:00. 
-// Reset takes back to 5:00.
-//
-// Vibrates at 4 minutes and 1 minute and final timer with custome vibrate pattern. 
-// Times of reset are recorde as lap timers (Mainly as helps debug and for feedback as I use it). 
-// 
-// long press on select button toggles mode and aim is to toggle while running between modes
-// as well as when stopped. Lap times/resets don't change.
-// Will work on timer/chrono flag as well.
-//
 
 
 
@@ -58,10 +53,38 @@
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             4, 9, /* App version */
+             4, 10, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
+
+
+#define LAP_TIME_SIZE 5
+#define LAP_TIME_LEN 11
+/* 
+#define	YACHTIMER	0
+#define	STOPWATCH	1
+#define COUNTDOWN	2
+*/
+#define CNTDWNCNFGHRS	3
+#define CNTDWNCNFGMIN	4
+#define CNTDWNCNFGSEC	5
+#define WATCH		6
+
+
+
+// Lets start with one timer
+// methods will set this so aim is get out o fthis stuff
+YachtTimer myYachtTimer;
+
+// YachtTimer myYachtTimer = { 0,false, 0,0,STARTGUNTIME,STARTGUNTIME, STARTGUNTIME, 240 * ASECOND, 120 * ASECOND, 60 * ASECOND, ASECOND, true, true, YACHTIMER, 0, STARTGUNTIME };
+
+
+// Ok so view and controller from now on
+#define MAXMODE		7
+#define MAX_TIME	((ASECOND * 59)+(ASECOND * 59 * 60)+(ASECOND * 24 * 6 * 60 * 60)) // 6 days 24 hours 59 minutes and 59 seconds over a 144 Hours
+
+// View and controller
 static Window window;
 static AppContextRef app;
 
@@ -74,12 +97,17 @@ static TextLayer seconds_time_layer;
 static Layer line_layer;
 
 
+// while many clocks display only 
+static 	char lap_times[LAP_TIME_SIZE][LAP_TIME_LEN] = {"00:00:00.0", "00:01:00.0", "00:02:00.0", "00:03:00.0", "00:04:00.0"};
+
 // Lap time display
-#define LAP_TIME_SIZE 5
-static char lap_times[LAP_TIME_SIZE][11] = {"00:00:00.0", "00:01:00.0", "00:02:00.0", "00:03:00.0", "00:04:00.0"};
 static TextLayer lap_layers[LAP_TIME_SIZE]; // an extra temporary layer
 static int next_lap_layer = 0;
-static int last_lap_time = 0;
+
+// Now we do the model and cosntants for the model.
+// This will get segregated out.
+// Aim of segregating model is to allow unlimited types of stopwatches, timers etc.
+// as no malloc will limit memory used using constants
 
 // The documentation claims this is defined, but it is not.
 // Define it here for now.
@@ -88,53 +116,11 @@ static int last_lap_time = 0;
 #endif
 
 // Actually keeping track of time
-static time_t elapsed_time = 0;
-static bool started = false;
 static AppTimerHandle update_timer = APP_TIMER_INVALID_HANDLE;
-// We want hundredths of a second, but Pebble won't give us that.
-// Pebble's timers are also too inaccurate (we run fast for some reason)
-// Instead, we count our own time but also adjust ourselves every pebble
-// clock tick. We maintain our original offset in hundredths of a second
-// from the first tick. This should ensure that we always have accurate times.
-static time_t start_time = 0;
-static time_t last_pebble_time = 0;
-
-#define STARTGUNTIME 300000
-
-// Hard coded 5 minutes 
-static time_t start_gun_time = STARTGUNTIME;
-
-// Current timer countdown
-static time_t countdown_time = STARTGUNTIME;
-
-// Timer config time
-// Alter this when in config mode
-// When switch to timer mode set countdown to this time
-static time_t config_time = STARTGUNTIME;
-
-// 4 minutes
-static time_t blue_peter_time = 240000;
-// 2 minutes focus constant if above go to 4 minutes if below go to 1 minute
-static time_t switch_4or1_time = 120000;
-// 1 minute
-static time_t one_minute_time = 60000;
-static time_t one_second_time = 1000;
-// flags to track if we have buzzed for 4 and 1 min gun
-// as lap times reset will not buzz when button pressed but if not will buzz
-static bool buzzatbluepeter=true, buzzatone=true;
-
-#define	YACHTIMER	0
-#define	STOPWATCH	1
-#define COUNTDOWN	2
-#define CNTDWNCNFGHRS	3
-#define CNTDWNCNFGMIN	4
-#define CNTDWNCNFGSEC	5
-#define WATCH		6
-#define MAXMODE		7
-#define INVOFFSET	MAXMODE
 
 // Define starting colour mode.
 #define WHITE_ON_BLACK
+#define INVOFFSET	MAXMODE
 
 #ifdef WHITE_ON_BLACK
 static bool white_on_black=true;
@@ -150,16 +136,15 @@ static GColor background_colour = GColorWhite;
 static int inv_offset = INVOFFSET;
 #endif
 
-
 // Have inverted as second set of bitmaps
 // so use max multiplier
 static int buttonmodeimages[MAXMODE * 2];
 static BmpContainer button_labels[MAXMODE * 2];
 
-// 
-// Keep Katherine stopwatch mode
-static int appmode = YACHTIMER;
+
+// What we start in 
 static int startappmode = YACHTIMER;
+static int watchappmode  = YACHTIMER ;
 static GRect savelayerpos1, savelayerpos2;
 
 // Custom vibration pattern
@@ -171,6 +156,7 @@ const VibePattern start_pattern = {
 // Global animation lock. As long as we only try doing things while
 // this is zero, we shouldn't crash the watch.
 static int busy_animating = 0;
+static int ticklen=0;
 static GFont big_font, seconds_font, laps_font;
 
 #define TIMER_UPDATE 1
@@ -182,6 +168,7 @@ static GFont big_font, seconds_font, laps_font;
 #define BUTTON_RUN BUTTON_ID_SELECT
 #define BUTTON_RESET BUTTON_ID_UP
 
+// View an dcontroler method
 void toggle_stopwatch_handler(ClickRecognizerRef recognizer, Window *window);
 void countdown_config_handler(ClickRecognizerRef recognizer, Window *window);
 void config_provider(ClickConfig **config, Window *window);
@@ -194,7 +181,10 @@ void start_stopwatch();
 void toggle_stopwatch_handler(ClickRecognizerRef recognizer, Window *window);
 void toggle_mode(ClickRecognizerRef recognizer, Window *window);
 void reset_stopwatch_handler(ClickRecognizerRef recognizer, Window *window);
+// main view method
 void update_stopwatch();
+
+// Hook to ticks
 void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie);
 void pbl_main(void *params);
 void draw_line(Layer *me, GContext* ctx);
@@ -202,6 +192,7 @@ void save_lap_time(time_t seconds);
 void lap_time_handler(ClickRecognizerRef recognizer, Window *window);
 void shift_lap_layer(PropertyAnimation* animation, Layer* layer, GRect* target, int distance_multiplier);
 void config_watch(int appmode,int increment);
+
 
 void handle_init(AppContextRef ctx) {
     app = ctx;
@@ -233,7 +224,7 @@ void handle_init(AppContextRef ctx) {
     
     // in init only have either stopwatch as count up  or other modes count downs
     // if countdown then default to 5 mins same as yacht timer anyhow
-    if(appmode == STOPWATCH)
+    if(startappmode == STOPWATCH)
     {
     	text_layer_set_text(&big_time_layer, "00:00");
     }
@@ -330,7 +321,7 @@ void handle_init(AppContextRef ctx) {
     	layer_set_frame(&button_labels[i].layer.layer, GRect(130, 10, 14, 136));
 
 	// Make sure active mode button only visible
-	layer_set_hidden( &button_labels[i].layer.layer, ((appmode+inv_offset)==i?false:true));
+	layer_set_hidden( &button_labels[i].layer.layer, ((startappmode+inv_offset)==i?false:true));
 
 	// add child layers to root_layer
     	layer_add_child(root_layer, &button_labels[i].layer.layer);
@@ -339,14 +330,21 @@ void handle_init(AppContextRef ctx) {
     savelayerpos1 = layer_get_frame(&big_time_layer.layer);
     savelayerpos2 = layer_get_frame(&seconds_time_layer.layer);;
     
+    yachtimer_init(&myYachtTimer,startappmode);
 
+    // set countdown config time to 10 minutes
+    yachtimer_setConfigTime(&myYachtTimer, ASECOND * 60 * 10);
 
     // Set up lap time stuff, too.
     init_lap_window();
+
+    // Initialise timers
+
  
     // Get timer going same as stoping stop watch.
     stop_stopwatch();
 }
+
 
 void handle_deinit(AppContextRef ctx) {
     for(int i=0;i<(MAXMODE*2);i++)
@@ -363,42 +361,35 @@ void draw_line(Layer *me, GContext* ctx) {
 }
 
 void stop_stopwatch() {
-    started = false;
+   
+    yachtimer_stop(&myYachtTimer); 
     if(update_timer != APP_TIMER_INVALID_HANDLE) {
         if(app_timer_cancel_event(app, update_timer)) {
             update_timer = APP_TIMER_INVALID_HANDLE;
         }
     }
     // Slow update down to once a second to save power
-    update_timer = app_timer_send_event(app, 1000, TIMER_UPDATE);
+    ticklen = yachtimer_getTick(&myYachtTimer);
+    update_timer = app_timer_send_event(app, ticklen, TIMER_UPDATE);
 }
 
 void start_stopwatch() {
-    started = true;
-    last_pebble_time = 0;
-    start_time = 0;
+    yachtimer_start(&myYachtTimer);
 
     // default start mode
-    startappmode = STOPWATCH;
+    startappmode = yachtimer_getMode(&myYachtTimer);;
 
-    // if not stopwatch start
-    switch(appmode)
-    {
-	case YACHTIMER:
-	case COUNTDOWN:
-		startappmode = appmode;
-    }
     // Up the resolution to do deciseconds
     if(update_timer != APP_TIMER_INVALID_HANDLE) {
         if(app_timer_cancel_event(app, update_timer)) {
             update_timer = APP_TIMER_INVALID_HANDLE;
         }
     }
-    update_timer = app_timer_send_event(app, 100, TIMER_UPDATE);
+    update_timer = app_timer_send_event(app, yachtimer_getTick(&myYachtTimer), TIMER_UPDATE);
 }
 
 void toggle_stopwatch_handler(ClickRecognizerRef recognizer, Window *window) {
-    if(started) {
+    if(yachtimer_isRunning(&myYachtTimer)) {
         stop_stopwatch();
     } else {
         start_stopwatch();
@@ -407,29 +398,23 @@ void toggle_stopwatch_handler(ClickRecognizerRef recognizer, Window *window) {
 
 void reset_stopwatch_handler(ClickRecognizerRef recognizer, Window *window) {
     if(busy_animating) return;
-    bool is_running = started;
 
-    //  if reset what to  reset too
-    // moved this as now have watch mode and reset won't do anything in watch mode
-    // instead allow inverting is the plan
-    int reset_time = config_time;
+    yachtimer_reset(&myYachtTimer);
 
-    switch(appmode)
+    switch(watchappmode)
     {
 	case STOPWATCH:
 	case YACHTIMER:
-	    // if in yachtimer reset to standard times
-	    reset_time=start_gun_time;
 	case COUNTDOWN:
-            countdown_time = reset_time ;
-	    stop_stopwatch();
-	    buzzatbluepeter=true; 
-	    buzzatone=true;
-	    elapsed_time = 0;
-	    start_time = 0;
-	    last_lap_time = 0;
-	    last_pebble_time = 0;
-	    if(is_running) start_stopwatch();
+	    if(yachtimer_isRunning(&myYachtTimer))
+	    {
+		 stop_stopwatch();
+		 start_stopwatch();
+	    }
+	    else
+	    {
+	    	stop_stopwatch();
+	    }
 	    update_stopwatch();
 
 	    // Animate all the laps away.
@@ -444,58 +429,32 @@ void reset_stopwatch_handler(ClickRecognizerRef recognizer, Window *window) {
 	    break;
 	default:
 	    // if not in config mode won't do anything which makes this easy
-            config_watch(appmode,1);
+            config_watch(watchappmode,1);
     }
 }
 
 void lap_time_handler(ClickRecognizerRef recognizer, Window *window) {
     if(busy_animating) return;
-    if(started)
+
+    // if not running will retunr 0 which is useless
+    // so check timer is running before diaplaying stuff
+    if(yachtimer_isRunning(&myYachtTimer))
     {
-	    time_t t=0;
-	    switch(appmode)
+	    // returns laptime of current mode
+	    // if overrun timer willbe time since overrun started
+	    time_t t=abs(yachtimer_getLap(&myYachtTimer));
+	    switch(watchappmode)
 	    {
 	    	case STOPWATCH:
-			t = elapsed_time - last_lap_time;
-			last_lap_time = elapsed_time;
-	    		save_lap_time(t);
-			break;
 		case YACHTIMER:
 		case COUNTDOWN:	
-			// Save when button was pressed for laptime display
-			t = countdown_time - elapsed_time; 	
-			last_lap_time = t;
-
-			if(appmode==YACHTIMER)
-			{
-
-				// Now target new gun as started if above 2 mins target 4
-				// do this even if halted
-				if(t >= switch_4or1_time)
-				{
-					// as manually set don't buzz
-					buzzatbluepeter=false;
-					elapsed_time = blue_peter_time;
-					// had to have been 60 seconds before happened
-					start_time = last_pebble_time - (start_gun_time - blue_peter_time);
-				}
-				else  // otherwise target 1 minute
-				{
-					// as manually set don't buzz
-					buzzatone=false;
-					elapsed_time = one_minute_time;
-
-					// had to have been 240 seconds before hadn
-					start_time = last_pebble_time - (start_gun_time - one_minute_time) ;
-				}
-			}
 	    		save_lap_time(t);
 	    }
     }
     // Update countdown if desired 
     // Note if running adjust elapsed if stopped config
     // does nothing if not in config mode.
-    config_watch(appmode,-1);
+    config_watch(watchappmode,-1);
 
     // as timer always going will naturally update
 }
@@ -540,17 +499,17 @@ void config_watch(int appmode,int increment)
     switch(appmode)
 	{
 	case CNTDWNCNFGHRS:
-		adjustnum=one_minute_time * 60;
+		adjustnum=ASECOND * 60 * 60;
 		break;
 	// Ok so we want to lower countdown config 
 	// Down in increments of 1 minute
 	case CNTDWNCNFGMIN:
-		adjustnum=one_minute_time;
+		adjustnum=ASECOND * 60;
 		break;
 
 	// Seconds
 	case CNTDWNCNFGSEC:
-		adjustnum=one_second_time;
+		adjustnum=ASECOND;
 		break;
 
 	// Allow everything to invert
@@ -563,24 +522,25 @@ void config_watch(int appmode,int increment)
 		break;
   	}
 
+
 	/* for non adjust appmodes does nothing as adjustnum is 0 */
 	time_t new_time=0;
 
 	/* if running adjust running time otherwise adjust config time */
-	if(started)
+	if(yachtimer_isRunning(&myYachtTimer))
 	{
-		new_time =  elapsed_time + (increment * adjustnum );
-		/* if decrementing  stop at lowest value  */
-		if(new_time <= 0 ) new_time = elapsed_time;
-		elapsed_time = new_time;
+		new_time =  yachtimer_getElapsed(&myYachtTimer) + (increment * adjustnum );
+		if(new_time > MAX_TIME) new_time = yachtimer_getElapsed(&myYachtTimer);
+		yachtimer_setElapsed(&myYachtTimer, new_time);
 	}
 	else
 	{
-		new_time =  config_time + (increment * adjustnum );
-		/* if decrementing  stop at lowest value  */
-		if(new_time <= 0 ) new_time = config_time;
-		config_time = new_time;
-		countdown_time = config_time;
+		new_time =  yachtimer_getConfigTime(&myYachtTimer) + (increment * adjustnum );
+		// Cannot sert below 0
+		// Can set above max display time
+		// so keep it displayable
+		if(new_time > MAX_TIME) new_time = MAX_TIME;
+		yachtimer_setConfigTime(&myYachtTimer, new_time);
 
 	}
 
@@ -597,22 +557,24 @@ void update_stopwatch() {
     static char ampm[] = "  ";
 
     // default display using appmode but if in watch mode display in started mode.
-    int stopwatchappmode = appmode;
-    PblTm timeforformat;
+    int stopwatchappmode = watchappmode;
+    PblTm *timeforformat;
+    PblTm *timerforformat;
     static char big_time[] = "00:00";
     static char deciseconds_time[] = ".0";
     static char seconds_time[] = ":00";
     time_t display_time = 0;
+    
 
 
-    switch(appmode)
+    switch(stopwatchappmode)
     {
 	// Only do this in watch mode 
 	// As timer is fime grained avoiding call
 	// That could go to hardware
 	case WATCH:
-		get_time(&timeforformat);
-		string_format_time(date, sizeof(date) , "%a %h %e", &timeforformat);	
+		timeforformat = yachtimer_getPblLastTime(&myYachtTimer);
+		string_format_time(date, sizeof(date) , "%a %h %e", timeforformat);	
 
 		// Don't bother redrawing if correct
 		if(strcmp(date,text_layer_get_text(&watch_layer_date)))
@@ -623,12 +585,12 @@ void update_stopwatch() {
 		// formt time
 		if ( clock_is_24h_style())
 		{
-		 	string_format_time(time, sizeof(time) , "%R", &timeforformat);	
+		 	string_format_time(time, sizeof(time) , "%R", timeforformat);	
 		}
 		else
 		{
-			string_format_time(time, sizeof(time) , "%I:%M", &timeforformat);	
-			string_format_time(ampm, sizeof(ampm) , "%p", &timeforformat);	
+			string_format_time(time, sizeof(time) , "%I:%M", timeforformat);	
+			string_format_time(ampm, sizeof(ampm) , "%p", timeforformat);	
 	
 		}
 		// Don't bother redrawing if correct
@@ -642,72 +604,59 @@ void update_stopwatch() {
 		{
     			text_layer_set_text(&watch_layer_timebig, time);
 		}
-	        stopwatchappmode = startappmode;
+		// shows the mode that a counter was started in when in watch mode.
+		// otherwise always shows last which is countdown.
+		// 
+		yachtimer_setMode(&myYachtTimer,startappmode);
 	//  Some interesting implied logic as default fall through is some form of countdown in config mode
         // as in config stopwatch appmode is left as is
     }
-    switch (stopwatchappmode)
-    {
 
-	case STOPWATCH:
-		// assume timer does not update elapsed time if not running
-		display_time = elapsed_time;
-		break;
-	// Some form of countdown still do logic 
-	// So even config is a countdown as order of modes is releavnt last mode seen by user was countdown
-	default:
-		display_time = (elapsed_time > countdown_time) ? 0:(countdown_time - elapsed_time);
-		// either started in yacht mode or running in yachtmode now
-		if(stopwatchappmode==YACHTIMER)
-		{
-			if(buzzatbluepeter && display_time <= blue_peter_time) 
-			{
-				buzzatbluepeter=false;
-				vibes_double_pulse();
-			}
-			if(buzzatone && display_time <= one_minute_time) 
-			{
-				buzzatone=false;
-				vibes_double_pulse();
-			}
-		}
-		if(display_time <= 0)
-		{
-			// if started in countdown mode stop or if in countdown mode
-			switch(stopwatchappmode)
-			{
-				case YACHTIMER:
-				case COUNTDOWN:
-					stop_stopwatch();
-			}
-			// Only at exact countdown vinrate
-			if(display_time == 0) vibes_enqueue_custom_pattern(start_pattern);
-			// make sure no negatve times
-			display_time=0;
-		}
-    } 
+    // abs flips negative times possible in countdown starts to show time since
+    // countdown completed
+    display_time = abs(yachtimer_getDisplayTime(&myYachtTimer));
+
+    // Get a time we can format
+    timerforformat = yachtimer_getPblDisplayTime(&myYachtTimer);
+
+    theTimeEventType event = yachtimer_triggerEvent(&myYachtTimer);
+
+    if(event == MinorTime) vibes_double_pulse();
+    if(event == MajorTime) vibes_enqueue_custom_pattern(start_pattern);
+
     // Now convert to hours/minutes/seconds.
     int tenths = (display_time / 100) % 10;
-    int seconds = (display_time / 1000) % 60;
-    int minutes = (display_time / 60000) % 60;
     int hours = display_time / 3600000;
 
-    // We can't fit three digit hours, so stop timing here.
-    if(hours > 99) {
+    // Cannot do more than 7 days as loops back to 0.
+    if(display_time > MAX_TIME) {
 	stop_stopwatch();
 	return;
     }
     if(hours < 1)
     {
-        itoa2(minutes, &big_time[0]);
-        itoa2(seconds, &big_time[3]);
+	// show minutes:seconds.tenths
+	string_format_time(big_time, sizeof(big_time) , "%M:%S", timerforformat);	
+
+	// as tenths no weird roll over	
         itoa1(tenths, &deciseconds_time[1]);
     }
     else
     {
-        itoa2(hours, &big_time[0]);
-        itoa2(minutes, &big_time[3]);
-        itoa2(seconds, &seconds_time[1]);
+	// While less than 24 hours
+	if(hours < 24)
+	{
+		// show hours:minute:seconds
+		string_format_time(big_time, sizeof(big_time) , "%R", timerforformat);	
+		string_format_time(seconds_time, sizeof(seconds_time) , ":%S", timerforformat);	
+	}
+	// Now show days, hours, minutes
+	else
+	{
+		// Show day of month:hour:minute
+		string_format_time(big_time, sizeof(big_time) , "%w.%H", timerforformat);	
+		string_format_time(seconds_time, sizeof(seconds_time) , ":%M", timerforformat);	
+	}
     }
 	
     // Now draw the strings.
@@ -746,7 +695,7 @@ void save_lap_time(time_t lap_time) {
     }
 
     // Once those are done we can slide our new lap time in.
-    format_lap(lap_time, lap_times[next_lap_layer]);
+    format_lap(lap_time, lap_times[next_lap_layer],LAP_TIME_LEN);
 
     // Animate it
     static PropertyAnimation entry_animation;
@@ -768,25 +717,9 @@ void save_lap_time(time_t lap_time) {
 void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
     (void)handle;
     if(cookie == TIMER_UPDATE) {
-        time_t pebble_time = get_pebble_time();
-        if(!last_pebble_time) last_pebble_time = pebble_time;
-        if(started) {
-            elapsed_time += 100;
-            if(pebble_time > last_pebble_time) {
-                // If it's the first tick, instead of changing our time we calculate the correct time.
-                if(!start_time) {
-                    start_time = pebble_time - elapsed_time;
-                } else {
-                    elapsed_time = pebble_time - start_time;
-                }
-            }
-            update_timer = app_timer_send_event(ctx, elapsed_time <= 3600000 ? 100 : 1000, TIMER_UPDATE);
-        }
-	else
-	{
-            update_timer = app_timer_send_event(ctx, 1000, TIMER_UPDATE);
-	}
-        last_pebble_time = pebble_time;
+	yachtimer_tick(&myYachtTimer,ticklen);
+        ticklen = yachtimer_getTick(&myYachtTimer);
+        update_timer = app_timer_send_event(ctx, ticklen, TIMER_UPDATE);
         update_stopwatch();
     }
 }
@@ -796,6 +729,7 @@ void handle_display_lap_times(ClickRecognizerRef recognizer, Window *window) {
 }
 void show_buttons()
 {
+  int appmode = watchappmode;
 
   for(int i=0;i<(MAXMODE*2);i++) {
 	layer_set_hidden( &button_labels[i].layer.layer, ((appmode+inv_offset)==i?false:true));
@@ -804,39 +738,27 @@ void show_buttons()
 
 // Toggle stopwatch timer mode
 void toggle_mode(ClickRecognizerRef recognizer, Window *window) {
-	  (void)recognizer;
-	  (void)window;
-	  Layer *root_layer = window_get_root_layer(window);
 	  
-
+	  watchappmode++;
 	  // Modes are contigous so each press cycles.
-	  appmode++;
-	  if(appmode>=MAXMODE) 
+	  if(watchappmode>=MAXMODE) 
 	  {
-		appmode = 0;
+		watchappmode = 0;
 	  }
+	  // Can only set to first three but watch appmode can have 6 modes
+	  yachtimer_setMode(&myYachtTimer,watchappmode);
+	 
 	  show_buttons();
-	  switch(appmode)
-	  {
-		case YACHTIMER:
-			countdown_time=start_gun_time;
-			break;
-		case COUNTDOWN:
-			countdown_time=config_time;
-			break;
-		default:
-			;
-	  }
 	 
 	  //get time being shown and not countdown when move to WATCH mode
-	  if(appmode==WATCH)
+	  if(watchappmode==WATCH)
 	  {
 		  layer_set_hidden(&watch_layer_date.layer,false);
 		  layer_set_hidden(&watch_layer_timebig.layer,false);
 		  layer_set_hidden(&watch_layer_ampm.layer,false);
 
 		  // Hide stopwatch/countdown if not started
-		  if(!started)		
+		  if(!yachtimer_isRunning(&myYachtTimer))		
 		  {
 		  	layer_set_hidden(&big_time_layer.layer,true);
 		  	layer_set_hidden(&seconds_time_layer.layer,true);
