@@ -25,6 +25,7 @@
 #include "pebble_app.h"
 #include "pebble_fonts.h"
 #include "yachtimermodel.h"
+static    PblTm toFormat;
 
 void itoa1(int num, char* buffer) {
     const char digits[10] = "0123456789";
@@ -44,8 +45,7 @@ void itoa2(int num, char* buffer) {
     buffer[1] = digits[num % 10];
 }
 void format_lap(time_t lap_time, char* buffer,int bufferlen) {
-    PblTm toFormat;
-    yachtimer_setPblTime(&toFormat,lap_time);
+    yachtimer_setPblTime(&toFormat,lap_time / ASECOND);
     int hundredths = (lap_time / 100) % 10;
     int hours = lap_time / 3600000;
     

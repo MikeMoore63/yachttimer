@@ -1,27 +1,5 @@
  /*
- * Pebble Stopwatch - the big, ugly file.
- * Copyright (C) 2013 Katharine Berry
- * 
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- * 
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
-// Above exists for original file below for all the stuff I added
- /*
- * Pebble yActTimer - the big, ugly file.
+ * Pebble yachtTimer - the big, ugly file.
  * Copyright (C) 2013 Mike Moore 
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -41,9 +19,12 @@
  * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
 #include "pebble_os.h"
 #include "pebble_app.h"
 #include "pebble_fonts.h"
+
+// What does most of the work
 #include "yachtimermodel.h"
 
 
@@ -53,7 +34,7 @@
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             4, 10, /* App version */
+             5, 0, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
@@ -61,7 +42,7 @@ PBL_APP_INFO(MY_UUID,
 
 #define LAP_TIME_SIZE 5
 #define LAP_TIME_LEN 11
-/* 
+/*  happens to be in the model
 #define	YACHTIMER	0
 #define	STOPWATCH	1
 #define COUNTDOWN	2
@@ -74,10 +55,9 @@ PBL_APP_INFO(MY_UUID,
 
 
 // Lets start with one timer
-// methods will set this so aim is get out o fthis stuff
+// as oo can now add as many as you want.
 YachtTimer myYachtTimer;
 
-// YachtTimer myYachtTimer = { 0,false, 0,0,STARTGUNTIME,STARTGUNTIME, STARTGUNTIME, 240 * ASECOND, 120 * ASECOND, 60 * ASECOND, ASECOND, true, true, YACHTIMER, 0, STARTGUNTIME };
 
 
 // Ok so view and controller from now on
@@ -434,6 +414,7 @@ void reset_stopwatch_handler(ClickRecognizerRef recognizer, Window *window) {
 }
 
 void lap_time_handler(ClickRecognizerRef recognizer, Window *window) {
+    time_t t=0;
     if(busy_animating) return;
 
     // if not running will retunr 0 which is useless
@@ -442,7 +423,7 @@ void lap_time_handler(ClickRecognizerRef recognizer, Window *window) {
     {
 	    // returns laptime of current mode
 	    // if overrun timer willbe time since overrun started
-	    time_t t=abs(yachtimer_getLap(&myYachtTimer));
+	    t=abs(yachtimer_getLap(&myYachtTimer));
 	    switch(watchappmode)
 	    {
 	    	case STOPWATCH:

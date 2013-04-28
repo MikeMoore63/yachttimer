@@ -23,7 +23,7 @@
 
 #ifndef _MMYACHTIMERMODEL_H_
 #define _MMYACHTIMERMODEL_H_
-
+#include "pebble_os.h"
 #include "laps.h"
 #include "common.h"
 

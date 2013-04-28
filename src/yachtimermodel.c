@@ -55,6 +55,7 @@ static time_t get_pebble_time(YachtTimer *myTimer)
 void yachtimer_setPblTime(PblTm *pblTm,time_t displaytime)
 {
 	int daysinmonth[] = { 31,28,31,30,31,30,31,31,30,31,30,31 };
+	int i=0,days=0,daysecs=0,daytotal=0;
 
 	// converts display time to struct tm format
         // Allows pebble formatting of strings to be used for display
@@ -64,10 +65,10 @@ void yachtimer_setPblTime(PblTm *pblTm,time_t displaytime)
 	//
 
 	// Calc days just once
-	int days = displaytime / 86400;
+	days = displaytime / 86400;
 
 	//  calc time in the day
-	int daysecs = displaytime - (days * 86400);
+	daysecs = displaytime - (days * 86400);
 	pblTm->tm_hour = daysecs / (60 * 60);
 	pblTm->tm_min = (daysecs - (pblTm->tm_hour * (60 * 60))) / 60;
 	pblTm->tm_sec = daysecs - (pblTm->tm_hour * (60 * 60)) - (pblTm->tm_min * 60) ;
@@ -86,7 +87,7 @@ void yachtimer_setPblTime(PblTm *pblTm,time_t displaytime)
 	else daysinmonth[1]=28;
 
 	// Now find month and day of month
-	for(int i=0,daytotal=0;i<12;i++)
+	for(i=0,daytotal=0;i<12;i++)
 	{
 		// if we have got this far month must be set.
 		pblTm->tm_mon=i;
