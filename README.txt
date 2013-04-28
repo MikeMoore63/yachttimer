@@ -1,6 +1,6 @@
 //
-// Stop watch timer based upon stop watch atimer code from Katherine Berry so many thanks to Katherine
-// for a starting set of code.
+// Stop watch timer originally based upon stop watch atimer code from Katherine Berry so many thanks to Katherine
+// for a starting set of code. Now rewritten with [proper model.
 //
 // Aim of this is to have stop watch plus a countdown timer.
 //

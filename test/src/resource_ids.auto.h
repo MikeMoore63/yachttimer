@@ -1,0 +1,1 @@
+../../build/src/resource_ids.auto.h
