@@ -60,6 +60,7 @@
 #define BLUEPETERTIME 240 * ASECOND
 #define ONEMINUTETIME 60  * ASECOND
 #define SWITCH4OR1 120 * ASECOND
+#define WATCHMODE 	-1  // deliberate so can easily avoid WATCHMODE
 #define YACHTIMER       0
 #define STOPWATCH       1
 #define COUNTDOWN       2

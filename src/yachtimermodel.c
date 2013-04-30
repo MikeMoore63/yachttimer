@@ -112,8 +112,15 @@ PblTm *yachtimer_getPblLastTime(YachtTimer *myTimer)
 
 PblTm *yachtimer_getPblDisplayTime(YachtTimer *myTimer)
 {
-	time_t displaytime = abs(yachtimer_getDisplayTime(myTimer)) / 1000;
-	yachtimer_setPblTime(&(myTimer->d),displaytime);
+	if(yachtimer_getMode(myTimer) == WATCHMODE)
+	{
+		return &(myTimer->t);
+	}
+	else
+	{
+		time_t displaytime = abs(yachtimer_getDisplayTime(myTimer)) / 1000;
+		yachtimer_setPblTime(&(myTimer->d),displaytime);
+	}
 
 	return &(myTimer->d);
 }
@@ -151,6 +158,9 @@ void yachtimer_setMode(YachtTimer *myTimer,int appmode)
                         myTimer->appmode = COUNTDOWN;
                         myTimer->countdown_time=myTimer->config_time;
                         break;
+		case WATCHMODE:
+			myTimer->appmode = WATCHMODE;
+			break;
         }
 
 }
