@@ -46,8 +46,8 @@ void itoa2(int num, char* buffer) {
 }
 void format_lap(time_t lap_time, char* buffer,int bufferlen) {
     yachtimer_setPblTime(&toFormat,lap_time / ASECOND);
-    int hundredths = (lap_time / 100) % 10;
-    int hours = lap_time / 3600000;
+    int hundredths = (lap_time / DECISECOND) % 10;
+    int hours = lap_time / (60 * 60 * ASECOND);
     
     if(hours < 24)
     {

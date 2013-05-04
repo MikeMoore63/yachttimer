@@ -36,7 +36,7 @@
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             5, 1, /* App version */
+             5, 2, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
@@ -608,8 +608,8 @@ void update_stopwatch() {
     if(event == MajorTime) vibes_enqueue_custom_pattern(start_pattern);
 
     // Now convert to hours/minutes/seconds.
-    int tenths = (display_time / 100) % 10;
-    int hours = display_time / 3600000;
+    int tenths = (display_time / DECISECOND) % 10;
+    int hours = display_time / (60 * 60 * ASECOND);
 
     // Cannot do more than 7 days as loops back to 0.
     if(display_time > MAX_TIME) {

@@ -53,7 +53,10 @@
 // Will work on timer/chrono flag as well.
 //
 // to go in header to share with view
-#define ASECOND 1000
+#define DECISECOND 1
+#define ASECOND (10 * DECISECOND)
+// Ok so this looks odd but rationale
+// 
 
 // 5 minutes see rules of sailing
 #define STARTGUNTIME 300 * ASECOND

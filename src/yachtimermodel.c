@@ -36,6 +36,7 @@
 static time_t get_pebble_time(YachtTimer *myTimer)
 {
     // Milliseconds since January 1st 2012 in some timezone, 
+    // Deciseconds since January 1st 2012 in some timezone, 
     // This does calc and sets member var
     // so if last time is needed in pebble format can be returned.
     PblTm *t=&(myTimer->t);
@@ -49,7 +50,7 @@ static time_t get_pebble_time(YachtTimer *myTimer)
     // Need to handle leap years
     seconds += DAYS_BETWEEN_YEARS(2012, t->tm_year ) * 86400;
 
-    return seconds * 1000;
+    return seconds * ASECOND;
 	
 }
 void yachtimer_setPblTime(PblTm *pblTm,time_t displaytime)
@@ -118,7 +119,7 @@ PblTm *yachtimer_getPblDisplayTime(YachtTimer *myTimer)
 	}
 	else
 	{
-		time_t displaytime = abs(yachtimer_getDisplayTime(myTimer)) / 1000;
+		time_t displaytime = abs(yachtimer_getDisplayTime(myTimer)) / ASECOND;
 		yachtimer_setPblTime(&(myTimer->d),displaytime);
 	}
 
@@ -175,7 +176,15 @@ void yachtimer_tick(YachtTimer *myTimer,int ticklen) {
         if(yachtimer_isRunning(myTimer)) 
 	{
 		if(!myTimer->last_pebble_time) myTimer->last_pebble_time = pebble_time;
-		myTimer->elapsed_time += ticklen;
+
+		// Adding decisecond but base I want to change from millis to decis
+		// if ASECOND = 1000 add ticklen / 1 = ticklen / (1000/1000)
+                // if ASECOND = 100 add ticklen / 10 = ticklen / (1000/100)
+		// if ASECOND = 10 add ticklen /100  = ticklen / (1000/10)
+		// if ASECOND = 1 add ticklen /1000  = ticklen / (1000/1)
+                // Not something I am planning but good if it works
+                // if ASECOND = 5 add ticklen / 200  = ticklen / (1000/5)
+		myTimer->elapsed_time += (ticklen / (1000/ASECOND));
 		if(pebble_time > myTimer->last_pebble_time) 
                 {
 			// If it's the first tick, instead of changing our time we calculate the correct time.
@@ -368,13 +377,14 @@ bool yachtimer_isrunning(YachtTimer *myTimer)
 {
         return myTimer->started;
 }
+// Asking for milliseconds for timers
 int yachtimer_getTick(YachtTimer *myTimer)
 {
-        // default o a second
+        // default to a second
         int tick = 1000;
 
-        // if below an hour
-        if(myTimer->started && myTimer->elapsed_time <= 3600000 )
+        // if below an hour recomend deciseconds
+        if(myTimer->started && myTimer->elapsed_time <= (60 * 60 *  ASECOND) )
                 tick = 100;
 
         return(tick);
