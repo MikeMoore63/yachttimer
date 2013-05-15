@@ -36,7 +36,7 @@
 
 PBL_APP_INFO(MY_UUID,
              "YachtTimer", "Mike Moore",
-             5, 3, /* App version */
+             5, 4, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
@@ -425,7 +425,7 @@ void lap_time_handler(ClickRecognizerRef recognizer, Window *window) {
     {
 	    // returns laptime of current mode
 	    // if overrun timer willbe time since overrun started
-	    t=abs(yachtimer_getLap(&myYachtTimer));
+	    t=labs(yachtimer_getLap(&myYachtTimer));
 	    switch(watchappmode)
 	    {
 	    	case STOPWATCH:
@@ -597,7 +597,7 @@ void update_stopwatch() {
 
     // abs flips negative times possible in countdown starts to show time since
     // countdown completed
-    display_time = abs(yachtimer_getDisplayTime(&myYachtTimer));
+    display_time = labs(yachtimer_getDisplayTime(&myYachtTimer));
 
     // Get a time we can format
     timerforformat = yachtimer_getPblDisplayTime(&myYachtTimer);
@@ -608,8 +608,8 @@ void update_stopwatch() {
     if(event == MajorTime) vibes_enqueue_custom_pattern(start_pattern);
 
     // Now convert to hours/minutes/seconds.
-    int tenths = (display_time / DECISECOND) % 10;
-    int hours = display_time / (60 * 60 * ASECOND);
+    time_t tenths = (display_time / DECISECOND) % 10;
+    time_t hours = display_time / (60L * 60L * ASECOND);
 
     // Cannot do more than 7 days as loops back to 0.
     if(display_time > MAX_TIME) {

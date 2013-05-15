@@ -53,16 +53,16 @@
 // Will work on timer/chrono flag as well.
 //
 // to go in header to share with view
-#define DECISECOND 1
-#define ASECOND (10 * DECISECOND)
+#define DECISECOND 1L
+#define ASECOND (10L * DECISECOND)
 // Ok so this looks odd but rationale
 // 
 
 // 5 minutes see rules of sailing
-#define STARTGUNTIME 300 * ASECOND
-#define BLUEPETERTIME 240 * ASECOND
-#define ONEMINUTETIME 60  * ASECOND
-#define SWITCH4OR1 120 * ASECOND
+#define STARTGUNTIME 300L * ASECOND
+#define BLUEPETERTIME 240L * ASECOND
+#define ONEMINUTETIME 60L  * ASECOND
+#define SWITCH4OR1 120L * ASECOND
 #define WATCHMODE 	-1  // deliberate so can easily avoid WATCHMODE
 #define YACHTIMER       0
 #define STOPWATCH       1
@@ -118,8 +118,8 @@ typedef struct yachtTimerModel {
         // flags to track if we have buzzed for 4 and 1 min gun
         // as lap times reset will not buzz when button pressed but if not will buzz
         int appmode /* = YACHTIMER */;
-        int last_lap_time /* = 0*/;
-        int last_significant_time /* = 0*/;
+        time_t last_lap_time /* = 0*/;
+        time_t last_significant_time /* = 0*/;
 	PblTm t;
 	PblTm d;
 

@@ -56,7 +56,8 @@ static time_t get_pebble_time(YachtTimer *myTimer)
 void yachtimer_setPblTime(PblTm *pblTm,time_t displaytime)
 {
 	int daysinmonth[] = { 31,28,31,30,31,30,31,31,30,31,30,31 };
-	int i=0,days=0,daysecs=0,daytotal=0;
+	int i=0;
+    time_t days=0,daysecs=0,daytotal=0;
 
 	// converts display time to struct tm format
         // Allows pebble formatting of strings to be used for display
@@ -66,22 +67,22 @@ void yachtimer_setPblTime(PblTm *pblTm,time_t displaytime)
 	//
 
 	// Calc days just once
-	days = displaytime / 86400;
+	days = displaytime / 86400L;
 
 	//  calc time in the day
-	daysecs = displaytime - (days * 86400);
-	pblTm->tm_hour = daysecs / (60 * 60);
-	pblTm->tm_min = (daysecs - (pblTm->tm_hour * (60 * 60))) / 60;
-	pblTm->tm_sec = daysecs - (pblTm->tm_hour * (60 * 60)) - (pblTm->tm_min * 60) ;
+	daysecs = displaytime - (days * 86400L);
+	pblTm->tm_hour = (int)(daysecs / (60L * 60L));
+	pblTm->tm_min = (int)((daysecs - (pblTm->tm_hour * (60L * 60L))) / 60L);
+	pblTm->tm_sec = (int)(daysecs - (pblTm->tm_hour * (60L * 60L)) - (pblTm->tm_min * 60L)) ;
 	
 	// always never daylight saving for this
 	pblTm->tm_isdst = false;
 
 	// Use days plus 1900 to calculate year taking into account leap years
-	pblTm->tm_year = YEAR_PLUS_DAYS(1900,days);
+	pblTm->tm_year = (int)(YEAR_PLUS_DAYS(1900L,days));
 
 	// Use the days between years to calculate day of year
-	pblTm->tm_yday = days - DAYS_BETWEEN_YEARS(1900,pblTm->tm_year);
+	pblTm->tm_yday = (int)(days - DAYS_BETWEEN_YEARS(1900L,pblTm->tm_year));
 	
 	// need to have correct days in months to work out month
 	if(IS_LEAP_YEAR(pblTm->tm_year)) daysinmonth[1]=29;
@@ -92,7 +93,7 @@ void yachtimer_setPblTime(PblTm *pblTm,time_t displaytime)
 	{
 		// if we have got this far month must be set.
 		pblTm->tm_mon=i;
-		pblTm->tm_mday = pblTm->tm_yday - daytotal;
+		pblTm->tm_mday = (int)(pblTm->tm_yday - daytotal);
 		daytotal+=daysinmonth[i];
 
 		// if we have reached end we are done
@@ -119,7 +120,7 @@ PblTm *yachtimer_getPblDisplayTime(YachtTimer *myTimer)
 	}
 	else
 	{
-		time_t displaytime = abs(yachtimer_getDisplayTime(myTimer)) / ASECOND;
+		time_t displaytime = labs(yachtimer_getDisplayTime(myTimer)) / ASECOND;
 		yachtimer_setPblTime(&(myTimer->d),displaytime);
 	}
 
