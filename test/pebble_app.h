@@ -1,1 +1,1 @@
-../../../sdk/include/pebble_app.h
+pebbleemulator/pebbleemulator/pebble_app.h
