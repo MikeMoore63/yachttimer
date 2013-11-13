@@ -188,7 +188,7 @@ void handle_init() {
     // resource_init_current_app(&APP_RESOURCES);
 
     // Arrange for user input.
-    window_set_click_config_provider(window, (ClickConfigProvider) config_provider);
+    window_set_click_config_provider(window,  config_provider);
 
     // Get our fonts
     big_font = fonts_load_custom_font(resource_get_handle(FONT_BIG_TIME));
