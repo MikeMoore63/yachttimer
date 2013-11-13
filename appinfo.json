@@ -1,0 +1,110 @@
+{
+  "uuid": "184e2fe4-7f1c-486a-85b0-dca3d74e7dca",
+  "shortName": "YachtTimer",
+  "longName": "YachtTimer",
+  "companyName": "Mike Moore",
+  "versionCode": 6,
+  "versionLabel": "6.0.0",
+  "watchapp": {
+    "watchface": false
+  },
+  "appKeys": {},
+  "resources": {
+    "media": [
+      {
+        "characterRegex": "[:0-9.]",
+        "type": "font",
+        "name": "FONT_DEJAVU_SANS_BOLD_SUBSET_30",
+        "file": "fonts/DejaVuSans-Bold.ttf"
+      },
+      {
+        "characterRegex": "[:0-9. )Nolapsyet]",
+        "type": "font",
+        "name": "FONT_DEJAVU_SANS_SUBSET_18",
+        "file": "fonts/DejaVuSans.ttf"
+      },
+      {
+        "characterRegex": "[:0-9. JFMASONDTWabcdeghilmnoprstuvyAMP]",
+        "type": "font",
+        "name": "FONT_DEJAVU_SANS_SUBSET_22",
+        "file": "fonts/DejaVuSans.ttf"
+      },
+      {
+        "menuIcon": true,
+        "type": "png",
+        "name": "IMAGE_MENU_ICON",
+        "file": "images/yachttimer.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_STOPWATCH_BUTTON_LABELS",
+        "file": "images/swbuttons.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_YACHTIMER_BUTTON_LABELS",
+        "file": "images/ytbuttons.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_COUNTDOWN_BUTTON_LABELS",
+        "file": "images/cdbuttons.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_CNTDWNCNFGHRS_BUTTON_LABELS",
+        "file": "images/cdchbuttons.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_CNTDWNCNFGMIN_BUTTON_LABELS",
+        "file": "images/cdcmbuttons.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_CNTDWNCNFGSEC_BUTTON_LABELS",
+        "file": "images/cdcsbuttons.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_STOPWATCH_BUTTON_LABELSIV",
+        "file": "images/swbuttonsiv.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_YACHTIMER_BUTTON_LABELSIV",
+        "file": "images/ytbuttonsiv.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_COUNTDOWN_BUTTON_LABELSIV",
+        "file": "images/cdbuttonsiv.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_CNTDWNCNFGHRS_BUTTON_LABELSIV",
+        "file": "images/cdchbuttonsiv.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_CNTDWNCNFGMIN_BUTTON_LABELSIV",
+        "file": "images/cdcmbuttonsiv.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_CNTDWNCNFGSEC_BUTTON_LABELSIV",
+        "file": "images/cdcsbuttonsiv.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_WATCH_BUTTON_LABELS",
+        "file": "images/wbuttons.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_WATCH_BUTTON_LABELSIV",
+        "file": "images/wbuttonsiv.png"
+      }
+    ]
+  }
+}

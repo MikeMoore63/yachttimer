@@ -22,13 +22,12 @@
  */
 
 
-#include "pebble_os.h"
-#include "pebble_app.h"
-#include "pebble_fonts.h"
+#include <pebble.h>
 
 /* #include "laps.h"
 #include "common.h" */
 #include "yachtimermodel.h"
+
 
 // default days in month
 
@@ -39,8 +38,11 @@ static time_t get_pebble_time(YachtTimer *myTimer)
     // Deciseconds since January 1st 2012 in some timezone, 
     // This does calc and sets member var
     // so if last time is needed in pebble format can be returned.
-    PblTm *t=&(myTimer->t);
-    get_time(t);
+    struct tm  *t=&(myTimer->t);
+    time_t gettime = time(NULL);
+    struct tm *temp = localtime(&gettime);
+    memcpy(t,temp,sizeof(struct tm));
+    // get_time(t);
     
     time_t seconds = t->tm_sec;
     seconds += t->tm_min * 60;
@@ -53,7 +55,7 @@ static time_t get_pebble_time(YachtTimer *myTimer)
     return seconds * ASECOND;
 	
 }
-void yachtimer_setPblTime(PblTm *pblTm,time_t displaytime)
+void yachtimer_setPblTime(struct tm  *pblTm,time_t displaytime)
 {
 	int daysinmonth[] = { 31,28,31,30,31,30,31,31,30,31,30,31 };
 	int i=0;
@@ -107,12 +109,12 @@ void yachtimer_setPblTime(PblTm *pblTm,time_t displaytime)
 	pblTm->tm_wday = days  % 7;
 } 
 
-PblTm *yachtimer_getPblLastTime(YachtTimer *myTimer)
+struct tm  *yachtimer_getPblLastTime(YachtTimer *myTimer)
 {
 	return &(myTimer->t);
 }
 
-PblTm *yachtimer_getPblDisplayTime(YachtTimer *myTimer)
+struct tm  *yachtimer_getPblDisplayTime(YachtTimer *myTimer)
 {
 	if(yachtimer_getMode(myTimer) == WATCHMODE)
 	{

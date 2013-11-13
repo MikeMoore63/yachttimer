@@ -23,7 +23,7 @@
 
 #ifndef _MMYACHTIMERMODEL_H_
 #define _MMYACHTIMERMODEL_H_
-#include "pebble_os.h"
+#include <pebble.h>
 /* #include "laps.h"
 #include "common.h" */
 
@@ -120,16 +120,16 @@ typedef struct yachtTimerModel {
         int appmode /* = YACHTIMER */;
         time_t last_lap_time /* = 0*/;
         time_t last_significant_time /* = 0*/;
-	PblTm t;
-	PblTm d;
+	struct tm  t;
+	struct tm  d;
 
-} YachtTimer;
+} __attribute__((__packed__))  YachtTimer;
 
 // Model methods
 void yachtimer_init(YachtTimer *myTimer, int appmode);
 void yachtimer_reset(YachtTimer *myTimer);
-PblTm *yachtimer_getPblLastTime(YachtTimer *myTimer);
-PblTm *yachtimer_getPblDisplayTime(YachtTimer *myTimer);
+struct tm  *yachtimer_getPblLastTime(YachtTimer *myTimer);
+struct tm  *yachtimer_getPblDisplayTime(YachtTimer *myTimer);
 void yachtimer_stop(YachtTimer *myTimer);
 void yachtimer_start(YachtTimer *myTimer);
 bool yachtimer_isRunning(YachtTimer *myTimer);
@@ -151,6 +151,6 @@ bool yachtimer_countdownOverruning(YachtTimer *myTimer);
 // A general method to convert times in seconds to PblTm 
 // useful as then can use time format and even logic for watches
 // To display stop watches.
-void yachtimer_setPblTime(PblTm *pblTm,time_t toConvert);
+void yachtimer_setPblTime(struct tm  *pblTm,time_t toConvert);
 
 #endif

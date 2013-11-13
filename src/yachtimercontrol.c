@@ -21,9 +21,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "pebble_os.h"
-#include "pebble_app.h"
-#include "pebble_fonts.h"
+#include <pebble.h>
 #include "yachtimercontrol.h"
 
 #define NUMDEFHANDLERS 4
@@ -49,7 +47,7 @@ static YachtTimerControlInheritance defaultExtensionList[NUMDEFHANDLERS] = {
 // the default Extensions
 static YachtTimerControlExtension defaultExtension = {NUMDEFHANDLERS,defaultExtensionList };
 
-static void handle_button(ClickRecognizerRef recognizer, Window *window, ButtonControlType buttonType, ButtonPressType pressType ) {
+static void handle_button(ClickRecognizerRef recognizer, void *context, ButtonControlType buttonType, ButtonPressType pressType ) {
 	YachtTimerControlExtension *userExtension = this->extension;
 
 	// Note if controls mode is not one that is recognised these do nothing
@@ -62,54 +60,60 @@ static void handle_button(ClickRecognizerRef recognizer, Window *window, ButtonC
 		{
 			if(userExtension->extension[i].buttonType == buttonType && userExtension->extension[i].buttonPress == pressType)
 			{
-				userExtension->extension[i].handler(this,recognizer,window);
+				userExtension->extension[i].handler(this,recognizer,context);
 			}
 		}
 	}
 }
 
-static void button_lap_short_handler(ClickRecognizerRef recognizer, Window *window) {
-	handle_button(recognizer,window, BUTTON_LAP, BUTTON_SHORT);	
+static void button_lap_short_handler(ClickRecognizerRef recognizer, void *context) {
+	handle_button(recognizer,context, BUTTON_LAP, BUTTON_SHORT);	
 }
 
-static void button_lap_long_handler(ClickRecognizerRef recognizer, Window *window) {
-	handle_button(recognizer,window, BUTTON_LAP, BUTTON_LONG);	
+static void button_lap_long_handler(ClickRecognizerRef recognizer, void *context) {
+	handle_button(recognizer,context, BUTTON_LAP, BUTTON_LONG);	
 }
 
-static void button_reset_short_handler(ClickRecognizerRef recognizer, Window *window) {
-	handle_button(recognizer,window, BUTTON_RESET, BUTTON_SHORT);	
+static void button_reset_short_handler(ClickRecognizerRef recognizer, void *context) {
+	handle_button(recognizer,context, BUTTON_RESET, BUTTON_SHORT);	
 }
-static void button_reset_long_handler(ClickRecognizerRef recognizer, Window *window) {
-	handle_button(recognizer,window, BUTTON_RESET, BUTTON_LONG);	
+static void button_reset_long_handler(ClickRecognizerRef recognizer, void *context) {
+	handle_button(recognizer,context, BUTTON_RESET, BUTTON_LONG);	
 }
 
-static void button_run_short_handler(ClickRecognizerRef recognizer, Window *window) {
-	handle_button(recognizer,window, BUTTON_RUN, BUTTON_SHORT);	
+static void button_run_short_handler(ClickRecognizerRef recognizer, void *context) {
+	handle_button(recognizer,context, BUTTON_RUN, BUTTON_SHORT);	
 }
-static void button_run_long_handler(ClickRecognizerRef recognizer, Window *window) {
-	handle_button(recognizer,window, BUTTON_RUN, BUTTON_LONG);	
+static void button_run_long_handler(ClickRecognizerRef recognizer, void *context) {
+	handle_button(recognizer,context, BUTTON_RUN, BUTTON_LONG);	
 }
-void yachtimercontrol_default_config_provider(ClickConfig **config, Window *window) {
+void yachtimercontrol_default_config_provider( void *context) {
+    window_single_click_subscribe(BUTTON_RUN, button_run_short_handler);
+    window_long_click_subscribe(BUTTON_RUN, 1000, button_run_long_handler,NULL);
+    window_single_click_subscribe(BUTTON_LAP, button_lap_short_handler);
+    window_long_click_subscribe(BUTTON_LAP, 1000, button_lap_long_handler,NULL);
+    window_single_click_subscribe(BUTTON_RESET, button_reset_short_handler);
+    window_long_click_subscribe(BUTTON_RESET, 1000, button_reset_long_handler,NULL);
+    /*
     config[BUTTON_RUN]->click.handler = (ClickHandler)button_run_short_handler;
     config[BUTTON_RUN]->long_click.handler = (ClickHandler)button_run_long_handler;
     config[BUTTON_LAP]->click.handler = (ClickHandler) button_lap_short_handler;
     config[BUTTON_LAP]->long_click.handler = (ClickHandler) button_lap_long_handler;
     config[BUTTON_RESET]->click.handler = (ClickHandler)button_reset_short_handler;
     config[BUTTON_RESET]->long_click.handler = (ClickHandler)button_reset_long_handler;
+    */
 }
 
 
 void yachtimercontrol_init(	YachtTimerControl *theControl,
-				AppContextRef *app, 
 				Window *window, 
 				ModeResource *modeResource, 
 				int numModes, 
 				GRect positionIcon,  
-				PebbleAppTickHandler tickHandler )
+				TickHandler tickHandler )
 {
 	this = theControl;
 
-	this->app = app;
 	this->resources = modeResource;
 	this->numModes = numModes;
 	this->endVibePattern = &default_start_pattern;
@@ -129,10 +133,13 @@ void yachtimercontrol_init(	YachtTimerControl *theControl,
 
 	for (int i=0;i<numModes;i++)
   	{
-        	bmp_init_container(modeResource[i].resourceid,&(modeResource[i].modeImage));
-       		layer_set_frame(&(modeResource[i].modeImage.layer.layer), positionIcon);
-		layer_set_hidden(&(modeResource[i].modeImage.layer.layer), true);
-        	layer_add_child(window_get_root_layer(window),&(modeResource[i].modeImage.layer.layer));
+		modeResource[i].imgBmp = gbitmap_create_with_resource(modeResource[i].resourceid);
+		modeResource[i].modeImage = bitmap_layer_create(modeResource[i].imgBmp->bounds);
+		bitmap_layer_set_bitmap(modeResource[i].modeImage,modeResource[i].imgBmp);
+        	// bmp_init_container(modeResource[i].resourceid,&(modeResource[i].modeImage));
+       		layer_set_frame((Layer *)modeResource[i].modeImage, positionIcon);
+		layer_set_hidden((Layer *)modeResource[i].modeImage, true);
+        	layer_add_child(window_get_root_layer(window),(Layer *)modeResource[i].modeImage);
   	}		
 
 	// initialise the modelad set to starting mode.
@@ -145,9 +152,9 @@ void yachtimercontrol_init(	YachtTimerControl *theControl,
 	// Starting mode of model
 	this->startappmode = (this->resources)[0].mode;
 	yachtimercontrol_stop_stopwatch(this);
-	PblTm *tick_time;
+	struct tm  *tick_time;
 	tick_time = yachtimer_getPblDisplayTime(yachtimercontrol_getModel(this));
-	memcpy(&(this->theLastTime),tick_time,sizeof(PblTm));
+	memcpy(&(this->theLastTime),tick_time,sizeof(struct tm));
 	this->theLastTime.tm_yday = tick_time->tm_yday;
   	this->theLastTime.tm_mon = tick_time->tm_mon;
   	this->theLastTime.tm_year = tick_time->tm_year;
@@ -172,7 +179,9 @@ void yachtimercontrol_deinit(YachtTimerControl *theControl)
 	
 	for (int i=0;i<theControl->numModes;i++)
         {
-		bmp_deinit_container(&(modeResource[i].modeImage));
+		bitmap_layer_destroy(modeResource[i].modeImage);
+		gbitmap_destroy(modeResource[i].imgBmp);
+		// bmp_deinit_container(&(modeResource[i].modeImage));
 	}
 }
 
@@ -236,7 +245,7 @@ void yachtimercontrol_stop_stopwatch(YachtTimerControl *theControl)
     	yachtimercontrol_update_hand_positions(theControl);
 }
 
-void yachtimercontrol_toggle_mode(YachtTimerControl *theControl, ClickRecognizerRef recognizer, Window *window)
+void yachtimercontrol_toggle_mode(YachtTimerControl *theControl, ClickRecognizerRef recognizer, void *context)
 {
 	YachtTimer *myYachtTimer = yachtimercontrol_getModel(theControl);
 	ModeResource *theResources = theControl->resources;
@@ -248,13 +257,13 @@ void yachtimercontrol_toggle_mode(YachtTimerControl *theControl, ClickRecognizer
 
          for (int i=0;i<theControl->numModes;i++)
          {
-               layer_set_hidden( &(theResources[i].modeImage.layer.layer), (theControl->mode == i)?false:true);
+               layer_set_hidden( (Layer *)theResources[i].modeImage, (theControl->mode == i)?false:true);
          }
          theControl->ticks = 0;
 
          yachtimercontrol_update_hand_positions(theControl);
 }
-void yachtimercontrol_toggle_stopwatch_handler(YachtTimerControl *theControl, ClickRecognizerRef recognizer, Window *window) {
+void yachtimercontrol_toggle_stopwatch_handler(YachtTimerControl *theControl, ClickRecognizerRef recognizer, void *context) {
     YachtTimer *myYachtTimer = yachtimercontrol_getModel(theControl);
 
     switch(theControl->resources[theControl->mode].mode)
@@ -273,7 +282,7 @@ void yachtimercontrol_toggle_stopwatch_handler(YachtTimerControl *theControl, Cl
     }
     yachtimercontrol_update_hand_positions(theControl);
 }
-void yachtimercontrol_reset_stopwatch_handler(YachtTimerControl *theControl, ClickRecognizerRef recognizer, Window *window) {
+void yachtimercontrol_reset_stopwatch_handler(YachtTimerControl *theControl, ClickRecognizerRef recognizer, void *context) {
     YachtTimer *myYachtTimer = yachtimercontrol_getModel(theControl);
 
     switch(theControl->resources[theControl->mode].mode)
@@ -301,7 +310,7 @@ void yachtimercontrol_reset_stopwatch_handler(YachtTimerControl *theControl, Cli
     // Force redisplay
     yachtimercontrol_update_hand_positions(theControl);
 }
-void yachtimer_lap_time_handler(YachtTimerControl *theControl, ClickRecognizerRef recognizer, Window *window) {
+void yachtimer_lap_time_handler(YachtTimerControl *theControl, ClickRecognizerRef recognizer, void *context) {
     time_t t=0;
     
     // if not running will retunr 0 which is useless
@@ -332,82 +341,85 @@ void yachtimer_lap_time_handler(YachtTimerControl *theControl, ClickRecognizerRe
 }
 void yachtimercontrol_update_hand_positions(YachtTimerControl *theControl)
 {
-        yachtimercontrol_handle_timer(theControl->app,theControl->update_timer,TIMER_UPDATE);
+	static uint32_t cookie = TIMER_UPDATE;
+        yachtimercontrol_handle_timer(&cookie);
 }
 
 // Wrap normal timer mode with stopwatch handling
-void yachtimercontrol_handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie ) {
-  (void)ctx;
-  PebbleTickEvent theEvent;
-    PblTm *theTime;
-    PblTm myTime;
+void yachtimercontrol_handle_timer(  void *data ) {
+  TimeUnits units_changed;
+  struct tm time_copy;
+  struct tm  *tick_time;
+  struct tm  *theTime;
+  struct tm  myTime;
   YachtTimer *myYachtTimer = yachtimercontrol_getModel(this);
+  uint32_t cookie = *(uint32_t *)data;
 
    if(cookie == TIMER_UPDATE)
    {
           yachtimer_tick(myYachtTimer,ASECOND);
           this->ticklen = yachtimer_getTick(myYachtTimer);
-          theEvent.tick_time = yachtimer_getPblDisplayTime(myYachtTimer);
+          tick_time = yachtimer_getPblDisplayTime(myYachtTimer);
+	  memcpy(&time_copy,tick_time,sizeof(struct tm));
+	  tick_time = &time_copy;
           theTime = yachtimer_getPblLastTime(myYachtTimer);
-          memcpy(&myTime,theTime,sizeof(PblTm));
+          memcpy(&myTime,theTime,sizeof(struct tm));
           theTime = &myTime;
 
           // Work out time changed
           // In all modes do hors minutes and seconds
           // In non-watch modes have day, date, day of week etc follow clock
-          theEvent.units_changed = 0;
-          theEvent.units_changed |= (this->theLastTime.tm_sec != theEvent.tick_time->tm_sec)?SECOND_UNIT:theEvent.units_changed;
-          theEvent.units_changed |= (this->theLastTime.tm_min != theEvent.tick_time->tm_min)?MINUTE_UNIT:theEvent.units_changed;
-          theEvent.units_changed |= (this->theLastTime.tm_hour != theEvent.tick_time->tm_hour)?HOUR_UNIT:theEvent.units_changed;
+          units_changed = 0;
+          units_changed |= (this->theLastTime.tm_sec != tick_time->tm_sec)?SECOND_UNIT:units_changed;
+          units_changed |= (this->theLastTime.tm_min != tick_time->tm_min)?MINUTE_UNIT:units_changed;
+          units_changed |= (this->theLastTime.tm_hour != tick_time->tm_hour)?HOUR_UNIT:units_changed;
           if(yachtimer_getMode(myYachtTimer) == WATCHMODE)
           {
-                  theEvent.units_changed |= (this->theLastTime.tm_yday != theEvent.tick_time->tm_yday)?DAY_UNIT:theEvent.units_changed;
-                  theEvent.units_changed |= (this->theLastTime.tm_mon != theEvent.tick_time->tm_mon)?MONTH_UNIT:theEvent.units_changed;
-                  theEvent.units_changed |= (this->theLastTime.tm_year != theEvent.tick_time->tm_year)?YEAR_UNIT:theEvent.units_changed;
+                  units_changed |= (this->theLastTime.tm_yday != tick_time->tm_yday)?DAY_UNIT:units_changed;
+                  units_changed |= (this->theLastTime.tm_mon != tick_time->tm_mon)?MONTH_UNIT:units_changed;
+                  units_changed |= (this->theLastTime.tm_year != tick_time->tm_year)?YEAR_UNIT:units_changed;
            }
            else
            {
-
-                  theEvent.units_changed |= (this->theLastTime.tm_yday != theTime->tm_yday)?DAY_UNIT:theEvent.units_changed;
-                  theEvent.units_changed |= (this->theLastTime.tm_mon != theTime->tm_mon)?MONTH_UNIT:theEvent.units_changed;
-                  theEvent.units_changed |= (this->theLastTime.tm_year != theTime->tm_year)?YEAR_UNIT:theEvent.units_changed;
+                  units_changed |= (this->theLastTime.tm_yday != theTime->tm_yday)?DAY_UNIT:units_changed;
+                  units_changed |= (this->theLastTime.tm_mon != theTime->tm_mon)?MONTH_UNIT:units_changed;
+                  units_changed |= (this->theLastTime.tm_year != theTime->tm_year)?YEAR_UNIT:units_changed;
            }
-           memcpy(&(this->theLastTime),theEvent.tick_time,sizeof(PblTm));
+           memcpy(&(this->theLastTime),tick_time,sizeof(struct tm));
 
           if(yachtimer_getMode(myYachtTimer) != WATCHMODE)
           {
-              theEvent.tick_time->tm_yday = theTime->tm_yday;
-              theEvent.tick_time->tm_mon = theTime->tm_mon;
-              theEvent.tick_time->tm_year = theTime->tm_year;
-              theEvent.tick_time->tm_wday = theTime->tm_wday;
-              theEvent.tick_time->tm_mday = theTime->tm_mday;
+              tick_time->tm_yday = theTime->tm_yday;
+              tick_time->tm_mon = theTime->tm_mon;
+              tick_time->tm_year = theTime->tm_year;
+              tick_time->tm_wday = theTime->tm_wday;
+              tick_time->tm_mday = theTime->tm_mday;
           }
           if(this->ticks <= TICKREMOVE)
           {
-                theEvent.units_changed = SECOND_UNIT|MINUTE_UNIT|HOUR_UNIT|DAY_UNIT|MONTH_UNIT|YEAR_UNIT;
+                units_changed = SECOND_UNIT|MINUTE_UNIT|HOUR_UNIT|DAY_UNIT|MONTH_UNIT|YEAR_UNIT;
           }
 
           // Emulate every second tick
-          if(this->update_timer != APP_TIMER_INVALID_HANDLE) {
-              if(app_timer_cancel_event(this->app, this->update_timer)) {
-                  this->update_timer = APP_TIMER_INVALID_HANDLE;
-              }
+          if(this->update_timer != NULL) {
+              app_timer_cancel( this->update_timer);
+              this->update_timer = NULL;
           }
           // All second only stopwatches need a second rather than using ticklen
-          this->update_timer = app_timer_send_event(ctx, 1000, TIMER_UPDATE);
+          this->update_timer = app_timer_register( 1000, yachtimercontrol_handle_timer,data);
           this->ticks++;
           if(this->ticks == TICKREMOVE && this->autohidebitmaps)
           {
                 ModeResource *theResources = this->resources;
                 for(int i=0;i<this->numModes;i++)
                 {
-                    layer_set_hidden( &(theResources[i].modeImage.layer.layer), true);
+                    layer_set_hidden( (Layer *)theResources[i].modeImage, true);
                 }
           }
           theTimeEventType event = yachtimer_triggerEvent(myYachtTimer);
 
         if(event == MinorTime) vibes_double_pulse();
         if(event == MajorTime) vibes_enqueue_custom_pattern(*(this->endVibePattern));
-        this->tickHandler(this->app,&theEvent);
+        this->tickHandler(tick_time, units_changed);
    }
 }

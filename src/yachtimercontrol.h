@@ -23,8 +23,9 @@
 
 #ifndef _MMYACHTIMERCONTROL_H_
 #define _MMYACHTIMERCONTROL_H_
-#include "pebble_os.h"
+#include <pebble.h>
 #include "yachtimermodel.h"
+
 
 typedef enum  ButtonControl {
 	BUTTON_LAP = BUTTON_ID_DOWN,
@@ -46,7 +47,7 @@ typedef enum ButtonPress {
 // The documentation claims this is defined, but it is not.
 // Define it here for now.
 #ifndef APP_TIMER_INVALID_HANDLE
-    #define APP_TIMER_INVALID_HANDLE 0xDEADBEEF
+    #define APP_TIMER_INVALID_HANDLE NULL
 #endif
 
 typedef struct moderesource {
@@ -55,14 +56,15 @@ typedef struct moderesource {
 	// This allows app to drive what is displayed
         int resourceid;
 	// This gets loaded in init and release in deinit
-        BmpContainer modeImage;
+        BitmapLayer *modeImage;
+	GBitmap *imgBmp; 
         // if config what the adjustment amount is by
         int adjustnum;
 } ModeResource; 
 
 struct yachtTimerControl;
 
-typedef void (*ClickExtensionHandler)(struct yachtTimerControl *controller, ClickRecognizerRef recognizer, Window *window);
+typedef void (*ClickExtensionHandler)(struct yachtTimerControl *controller, ClickRecognizerRef recognizer, void *context);
 
 
 typedef struct controlExtension {
@@ -77,8 +79,6 @@ typedef struct yachtTimerControlExtension {
 } YachtTimerControlExtension;
 
 typedef struct yachtTimerControl {
-	// need this for resetting timers
-	AppContextRef app;
 	// List of modes for controller to manage passed in init
 	ModeResource *resources;
 	// Number of modes
@@ -86,13 +86,13 @@ typedef struct yachtTimerControl {
 	// Underlying model
 	YachtTimer theModel;
 	// Used to keep track of last time so handle_tick gets past right flags
-	PblTm theLastTime;
+	struct tm  theLastTime;
 	// Passed at construction for final countdown vibe
 	VibePattern *endVibePattern;
 	// Ticks since last toggle
 	int ticks;
 	// handle to timer events set up and managed by controller
-	AppTimerHandle update_timer; 
+	AppTimer *update_timer; 
 	// between loops remebers what last set to
 	// Used by model to work out when in fine grained timing mode
 	int ticklen;
@@ -101,7 +101,7 @@ typedef struct yachtTimerControl {
 	// record mode on each start or reset. So if not in mode can get to what is needed.
 	int startappmode;
 	// Tick handler where display is meant to happen
-	PebbleAppTickHandler tickHandler;
+	TickHandler tickHandler;
 	// Click controls overrides if needed
 	YachtTimerControlExtension *extension;
 	bool autohidebitmaps;
@@ -111,12 +111,11 @@ typedef struct yachtTimerControl {
 
 // Constructor
 void yachtimercontrol_init(	YachtTimerControl *theControl,
-				AppContextRef *app, 
 				Window *window,
 				ModeResource *modeResource, 
 				int numModes, 
 				GRect positionIcon,  
-				PebbleAppTickHandler tickHandler);
+				TickHandler tickHandler);
 
 // Destructor
 void yachtimercontrol_deinit(YachtTimerControl *theControl);
@@ -126,17 +125,17 @@ void yachtimercontrol_deinit(YachtTimerControl *theControl);
 YachtTimer* yachtimercontrol_getModel(YachtTimerControl *theControl);
 
 // Handlers for clicks
-void yachtimercontrol_toggle_stopwatch_handler(YachtTimerControl *theControl, ClickRecognizerRef recognizer, Window *window);
-void yachtimercontrol_toggle_mode(YachtTimerControl *theControl, ClickRecognizerRef recognizer, Window *window);
-void yachtimercontrol_reset_stopwatch_handler(YachtTimerControl *theControl, ClickRecognizerRef recognizer, Window *window);
+void yachtimercontrol_toggle_stopwatch_handler(YachtTimerControl *theControl, ClickRecognizerRef recognizer, void *context);
+void yachtimercontrol_toggle_mode(YachtTimerControl *theControl, ClickRecognizerRef recognizer, void *context);
+void yachtimercontrol_reset_stopwatch_handler(YachtTimerControl *theControl, ClickRecognizerRef recognizer, void *context);
 void yachtimercontrol_stop_stopwatch(YachtTimerControl *theControl);
 void yachtimercontrol_start_stopwatch(YachtTimerControl *theControl);
-void yachtimer_lap_time_handler(YachtTimerControl *theControl, ClickRecognizerRef recognizer, Window *window);
+void yachtimer_lap_time_handler(YachtTimerControl *theControl, ClickRecognizerRef recognizer, void *context);
 
 // Boiler plat config handling
-void yachtimercontrol_default_config_provider(ClickConfig **config, Window *window);
+void yachtimercontrol_default_config_provider(void *context);
 // Hook to ticks
-void yachtimercontrol_handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie);
+void yachtimercontrol_handle_timer(void  *data);
 
 // method that adjusts the config
 void yachtimercontrol_config_watch(YachtTimerControl *theControl,int increment);

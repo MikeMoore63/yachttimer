@@ -21,11 +21,9 @@
  */
 
 
-#include "pebble_os.h"
-#include "pebble_app.h"
-#include "pebble_fonts.h"
+#include <pebble.h>
 #include "yachtimermodel.h"
-static    PblTm toFormat;
+static    struct tm  toFormat;
 
 void itoa1(int num, char* buffer) {
     const char digits[10] = "0123456789";
@@ -51,13 +49,13 @@ void format_lap(time_t lap_time, char* buffer,int bufferlen) {
     
     if(hours < 24)
     {
-    	string_format_time(buffer, bufferlen, "%R:%S.",&toFormat);
+    	strftime(buffer, bufferlen, "%R:%S.",&toFormat);
 
     	itoa1(hundredths, &buffer[9]);
         *(buffer+10)='\0';
     }
     else
     {
-    	string_format_time(buffer, bufferlen, "%w:%H:%M:%S.",&toFormat);
+    	strftime(buffer, bufferlen, "%w:%H:%M:%S.",&toFormat);
     }
 }
