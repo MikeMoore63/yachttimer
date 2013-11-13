@@ -167,7 +167,7 @@ void update_stopwatch();
 
 // Hook to ticks
 void handle_timer(void *data);
-void pbl_main(void *params);
+// void pbl_main(void *params);
 void draw_line(Layer *me, GContext* ctx);
 void save_lap_time(time_t seconds);
 void lap_time_handler(ClickRecognizerRef recognizer, void *data);
