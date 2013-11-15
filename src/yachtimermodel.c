@@ -28,6 +28,52 @@
 #include "common.h" */
 #include "yachtimermodel.h"
 
+#define UNDEFINED_STORE_KEY 0xffff
+#define STORAGE_VERSION 1   // To allow for incompatible stored structs can always add to end for extra but if need to change
+
+// Ok so plan is we model timers, stopwatches countdownas objects
+// Plan is to allow as many as  needed and to keep start and stop and laps independant.
+// DON'T put pointers in HERE this is stored so neeeds to have all state with no references 
+struct YachtTimer {
+	uint32_t storageKey;
+	uint32_t storageVersion;
+
+        // Starts at 0 each tick adds to this time
+        time_t elapsed_time /* = 0 */;
+
+        //  flag for if start called or not
+        bool started /* = false */ ;
+
+        // We want hundredths of a second, but Pebble won't give us that.
+        // Pebble's timers are also too inaccurate (we run fast for some reason)
+        // Instead, we count our own time but also adjust ourselves every pebble
+        // clock tick. We maintain our original offset in hundredths of a second
+        // from the first tick. This should ensure that we always have accurate times.
+        // Next two vars are all about this correction
+        time_t start_time /* = 0 */;
+        time_t last_pebble_time /* = 0 */;
+
+        // Current timer countdown
+        time_t countdown_time /* = STARTGUNTIME */;
+
+        // Timer config time
+        // Alter this when in config mode
+        // When switch to timer mode set countdown to this time
+        time_t config_time /* = STARTGUNTIME */;
+
+        // 2 minutes focus constant if above go to 4 minutes if below go to 1 minute
+        time_t switch_4or1_time /* = 120 * ASECOND */;
+        // 1 minute
+        // flags to track if we have buzzed for 4 and 1 min gun
+        // as lap times reset will not buzz when button pressed but if not will buzz
+        int appmode /* = YACHTIMER */;
+        time_t last_lap_time /* = 0*/;
+        time_t last_significant_time /* = 0*/;
+        struct tm  t;
+        struct tm  d;
+} __attribute__((__packed__))  ;
+
+
 
 // default days in month
 
@@ -351,18 +397,67 @@ void yachtimer_reset(YachtTimer *myTimer)
     yachtimer_setElapsed(myTimer,0);
     
 }
-void yachtimer_init(YachtTimer *myTimer, int appmode)
+YachtTimer  *yachtimer_create_private( int appmode)
 {
+	YachtTimer *myTimer = malloc(sizeof(YachtTimer));
+        if(myTimer)
+	{
+		myTimer->elapsed_time  = 0 ;
+		myTimer->started = false  ;
+		myTimer->start_time  = 0 ;
+		myTimer->last_pebble_time  = 0 ;
+		myTimer->countdown_time  = STARTGUNTIME ;
+		myTimer->config_time  = ASECOND * 60 * 10 ;
+		myTimer->appmode = appmode;
+		myTimer->last_lap_time = 0;
+		myTimer->last_significant_time = 0;
+		myTimer->storageKey = UNDEFINED_STORE_KEY;
+		myTimer->storageVersion = STORAGE_VERSION;
+	}
+	return(myTimer);
+}
+YachtTimer *yachtimer_create(int appmode)
+{
+	return(yachtimer_create_with_storage(DEFAULTYMSTORAGEKEY,appmode));
+}
+YachtTimer *yachtimer_create_with_storage(const uint32_t  storageKey, int defappmode)
+{
+	YachtTimer *myTimer = yachtimer_create_private(defappmode);
+	if(myTimer)
+	{
+		if(persist_exists(storageKey))
+		{
+			persist_read_data(storageKey,sizeof(YachtTimer),(void *)myTimer);
+		}
+		// if struct has changed in non backward compatible way revert to default modes.
+		if(myTimer->storageVersion != STORAGE_VERSION)
+		{
+			// note relies on no sub-allocs
+			yachtimer_destroy(myTimer);
+			myTimer = yachtimer_create_private(defappmode);
+		}
+		myTimer->storageKey = storageKey;
+	}
+	return(myTimer);
+}
+bool yachtimer_write_to_storage(YachtTimer *myTimer)
+{
+	size_t written=0;
+	if(myTimer->storageKey != UNDEFINED_STORE_KEY)
+	{
+		written = persist_write_data(myTimer->storageKey,sizeof(YachtTimer),(void *)myTimer);
+	}
+	if(written == sizeof(YachtTimer))
+	{
+		return true;
+	}
+	return false;
+}
 
-        myTimer->elapsed_time  = 0 ;
-        myTimer->started = false  ;
-        myTimer->start_time  = 0 ;
-        myTimer->last_pebble_time  = 0 ;
-        myTimer->countdown_time  = STARTGUNTIME ;
-        myTimer->config_time  = STARTGUNTIME ;
-        myTimer->appmode = appmode;
-        myTimer->last_lap_time = 0;
-        myTimer->last_significant_time = 0;
+void yachtimer_destroy(YachtTimer *myTimer)
+{
+	yachtimer_write_to_storage(myTimer);
+	free(myTimer);
 }
 // Note idempotent
 void yachtimer_stop(YachtTimer *myTimer)

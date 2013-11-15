@@ -62,9 +62,9 @@ typedef struct moderesource {
         int adjustnum;
 } ModeResource; 
 
-struct yachtTimerControl;
+struct YachtTimerControl;
 
-typedef void (*ClickExtensionHandler)(struct yachtTimerControl *controller, ClickRecognizerRef recognizer, void *context);
+typedef void (*ClickExtensionHandler)(struct YachtTimerControl *controller, ClickRecognizerRef recognizer, void *context);
 
 
 typedef struct controlExtension {
@@ -78,39 +78,18 @@ typedef struct yachtTimerControlExtension {
 	YachtTimerControlInheritance *extension; 
 } YachtTimerControlExtension;
 
-typedef struct yachtTimerControl {
-	// List of modes for controller to manage passed in init
-	ModeResource *resources;
-	// Number of modes
-	int numModes;
-	// Underlying model
-	YachtTimer theModel;
-	// Used to keep track of last time so handle_tick gets past right flags
-	struct tm  theLastTime;
-	// Passed at construction for final countdown vibe
-	VibePattern *endVibePattern;
-	// Ticks since last toggle
-	int ticks;
-	// handle to timer events set up and managed by controller
-	AppTimer *update_timer; 
-	// between loops remebers what last set to
-	// Used by model to work out when in fine grained timing mode
-	int ticklen;
-	// Current mode of controller not mode of model
-	int mode;
-	// record mode on each start or reset. So if not in mode can get to what is needed.
-	int startappmode;
-	// Tick handler where display is meant to happen
-	TickHandler tickHandler;
-	// Click controls overrides if needed
-	YachtTimerControlExtension *extension;
-	bool autohidebitmaps;
-	
-} YachtTimerControl;
-	
+typedef struct YachtTimerControl YachtTimerControl;
 
+	
 // Constructor
-void yachtimercontrol_init(	YachtTimerControl *theControl,
+YachtTimerControl * yachtimercontrol_create(
+				Window *window,
+				ModeResource *modeResource, 
+				int numModes, 
+				GRect positionIcon,  
+				TickHandler tickHandler);
+YachtTimerControl * yachtimercontrol_create_with_storage(
+                                const uint32_t key,
 				Window *window,
 				ModeResource *modeResource, 
 				int numModes, 
@@ -118,7 +97,7 @@ void yachtimercontrol_init(	YachtTimerControl *theControl,
 				TickHandler tickHandler);
 
 // Destructor
-void yachtimercontrol_deinit(YachtTimerControl *theControl);
+void yachtimercontrol_destroy(YachtTimerControl *theControl);
 
 // methods
 // allow access to underlying model for view access

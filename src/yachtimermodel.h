@@ -24,8 +24,6 @@
 #ifndef _MMYACHTIMERMODEL_H_
 #define _MMYACHTIMERMODEL_H_
 #include <pebble.h>
-/* #include "laps.h"
-#include "common.h" */
 
 //
 // Stop watch timer based upon stop watch atimer code from Katherine Berry so many thanks to Katherine
@@ -68,6 +66,9 @@
 #define STOPWATCH       1
 #define COUNTDOWN       2
 
+// Default storage key
+#define DEFAULTYMSTORAGEKEY (uint32_t)180563
+
 // useful macros for leap year stuff
 //
 // http://www.codeproject.com/Articles/7358/Ultra-fast-Algorithms-for-Working-with-Leap-Years
@@ -85,48 +86,16 @@ typedef enum  TimeEventType {
         NoEvent
 } theTimeEventType;
 
-// Ok so plan is we model timers, stopwatches countdownas objects
-// Plan is to allow as many as  needed and to keep start and stop and laps independant.
-typedef struct yachtTimerModel {
+struct YachtTimer;
+typedef struct YachtTimer YachtTimer;
 
-	// Starts at 0 each tick adds to this time
-        time_t elapsed_time /* = 0 */;
-
-	//  flag for if start called or not
-        bool started /* = false */ ;
-
-        // We want hundredths of a second, but Pebble won't give us that.
-        // Pebble's timers are also too inaccurate (we run fast for some reason)
-        // Instead, we count our own time but also adjust ourselves every pebble
-        // clock tick. We maintain our original offset in hundredths of a second
-        // from the first tick. This should ensure that we always have accurate times.
-	// Next two vars are all about this correction
-        time_t start_time /* = 0 */;
-        time_t last_pebble_time /* = 0 */;
-
-        // Current timer countdown
-        time_t countdown_time /* = STARTGUNTIME */;
-
-        // Timer config time
-        // Alter this when in config mode
-        // When switch to timer mode set countdown to this time
-        time_t config_time /* = STARTGUNTIME */;
-
-        // 2 minutes focus constant if above go to 4 minutes if below go to 1 minute
-        time_t switch_4or1_time /* = 120 * ASECOND */;
-        // 1 minute
-        // flags to track if we have buzzed for 4 and 1 min gun
-        // as lap times reset will not buzz when button pressed but if not will buzz
-        int appmode /* = YACHTIMER */;
-        time_t last_lap_time /* = 0*/;
-        time_t last_significant_time /* = 0*/;
-	struct tm  t;
-	struct tm  d;
-
-} __attribute__((__packed__))  YachtTimer;
 
 // Model methods
-void yachtimer_init(YachtTimer *myTimer, int appmode);
+YachtTimer *yachtimer_create(int appmode);
+YachtTimer *yachtimer_create_with_storage(const uint32_t  storageKey, int defappmode);
+bool yachtimer_write_to_storage(YachtTimer *myTimer);
+void yachtimer_destroy(YachtTimer *myTimer);
+// void yachtimer_init(YachtTimer *myTimer, int appmode);
 void yachtimer_reset(YachtTimer *myTimer);
 struct tm  *yachtimer_getPblLastTime(YachtTimer *myTimer);
 struct tm  *yachtimer_getPblDisplayTime(YachtTimer *myTimer);

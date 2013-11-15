@@ -39,6 +39,7 @@
 //             APP_INFO_STANDARD_APP);
 //
 
+uint32_t storageKey = DEFAULTYMSTORAGEKEY;
 
 #define LAP_TIME_SIZE 5
 #define LAP_TIME_LEN 11
@@ -56,7 +57,7 @@
 
 // Lets start with one timer
 // as oo can now add as many as you want.
-YachtTimer myYachtTimer;
+YachtTimer *myYachtTimer;
 
 
 
@@ -208,6 +209,9 @@ void handle_init() {
     
     // in init only have either stopwatch as count up  or other modes count downs
     // if countdown then default to 5 mins same as yacht timer anyhow
+    myYachtTimer = yachtimer_create(startappmode);
+    startappmode = yachtimer_getMode(myYachtTimer);;
+
     if(startappmode == STOPWATCH)
     {
     	text_layer_set_text(big_time_layer, "00:00");
@@ -329,19 +333,14 @@ void handle_init() {
     savelayerpos1 = layer_get_frame((Layer *)big_time_layer);
     savelayerpos2 = layer_get_frame((Layer *)seconds_time_layer);
     
-    yachtimer_init(&myYachtTimer,startappmode);
-
-    // set countdown config time to 10 minutes
-    yachtimer_setConfigTime(&myYachtTimer, ASECOND * 60 * 10);
 
     // Set up lap time stuff, too.
     init_lap_window();
 
-    // Initialise timers
-
- 
-    // Get timer going same as stoping stop watch.
-    stop_stopwatch();
+    // Get timer going 
+    ticklen = yachtimer_getTick(myYachtTimer);
+    static uint32_t cookie = TIMER_UPDATE;
+    update_timer = app_timer_register( ticklen, &handle_timer, &cookie );
 }
 
 
@@ -364,6 +363,7 @@ void handle_deinit() {
     fonts_unload_custom_font(big_font);
     fonts_unload_custom_font(seconds_font);
     fonts_unload_custom_font(laps_font);
+    yachtimer_destroy(myYachtTimer);
     window_destroy(window);
 }
 
@@ -375,22 +375,22 @@ void draw_line(Layer *me, GContext* ctx) {
 
 void stop_stopwatch() {
    
-    yachtimer_stop(&myYachtTimer); 
+    yachtimer_stop(myYachtTimer); 
     if(update_timer != NULL) {
         app_timer_cancel( update_timer);
         update_timer = NULL;
     }
     // Slow update down to once a second to save power
-    ticklen = yachtimer_getTick(&myYachtTimer);
+    ticklen = yachtimer_getTick(myYachtTimer);
     static uint32_t cookie = TIMER_UPDATE;
     update_timer = app_timer_register( ticklen, &handle_timer, &cookie );
 }
 
 void start_stopwatch() {
-    yachtimer_start(&myYachtTimer);
+    yachtimer_start(myYachtTimer);
 
     // default start mode
-    startappmode = yachtimer_getMode(&myYachtTimer);;
+    startappmode = yachtimer_getMode(myYachtTimer);;
 
     // Up the resolution to do deciseconds
     if(update_timer != NULL) {
@@ -398,11 +398,11 @@ void start_stopwatch() {
         update_timer = NULL;
     }
     static uint32_t cookie = TIMER_UPDATE;
-    update_timer = app_timer_register( yachtimer_getTick(&myYachtTimer), &handle_timer, &cookie);
+    update_timer = app_timer_register( yachtimer_getTick(myYachtTimer), &handle_timer, &cookie);
 }
 
 void toggle_stopwatch_handler(ClickRecognizerRef recognizer, void *data) {
-    if(yachtimer_isRunning(&myYachtTimer)) {
+    if(yachtimer_isRunning(myYachtTimer)) {
         stop_stopwatch();
     } else {
         start_stopwatch();
@@ -412,14 +412,14 @@ void toggle_stopwatch_handler(ClickRecognizerRef recognizer, void *data) {
 void reset_stopwatch_handler(ClickRecognizerRef recognizer, void *data) {
     if(busy_animating) return;
 
-    yachtimer_reset(&myYachtTimer);
+    yachtimer_reset(myYachtTimer);
 
     switch(watchappmode)
     {
 	case STOPWATCH:
 	case YACHTIMER:
 	case COUNTDOWN:
-	    if(yachtimer_isRunning(&myYachtTimer))
+	    if(yachtimer_isRunning(myYachtTimer))
 	    {
 		 stop_stopwatch();
 		 start_stopwatch();
@@ -457,11 +457,11 @@ void lap_time_handler(ClickRecognizerRef recognizer, void *data) {
 
     // if not running will retunr 0 which is useless
     // so check timer is running before diaplaying stuff
-    if(yachtimer_isRunning(&myYachtTimer))
+    if(yachtimer_isRunning(myYachtTimer))
     {
 	    // returns laptime of current mode
 	    // if overrun timer willbe time since overrun started
-	    t=labs(yachtimer_getLap(&myYachtTimer));
+	    t=labs(yachtimer_getLap(myYachtTimer));
 	    switch(watchappmode)
 	    {
 	    	case STOPWATCH:
@@ -546,20 +546,20 @@ void config_watch(int appmode,int increment)
 	time_t new_time=0;
 
 	/* if running adjust running time otherwise adjust config time */
-	if(yachtimer_isRunning(&myYachtTimer))
+	if(yachtimer_isRunning(myYachtTimer))
 	{
-		new_time =  yachtimer_getElapsed(&myYachtTimer) + (increment * adjustnum );
-		if(new_time > MAX_TIME) new_time = yachtimer_getElapsed(&myYachtTimer);
-		yachtimer_setElapsed(&myYachtTimer, new_time);
+		new_time =  yachtimer_getElapsed(myYachtTimer) + (increment * adjustnum );
+		if(new_time > MAX_TIME) new_time = yachtimer_getElapsed(myYachtTimer);
+		yachtimer_setElapsed(myYachtTimer, new_time);
 	}
 	else
 	{
-		new_time =  yachtimer_getConfigTime(&myYachtTimer) + (increment * adjustnum );
+		new_time =  yachtimer_getConfigTime(myYachtTimer) + (increment * adjustnum );
 		// Cannot sert below 0
 		// Can set above max display time
 		// so keep it displayable
 		if(new_time > MAX_TIME) new_time = MAX_TIME;
-		yachtimer_setConfigTime(&myYachtTimer, new_time);
+		yachtimer_setConfigTime(myYachtTimer, new_time);
 
 	}
 
@@ -592,7 +592,7 @@ void update_stopwatch() {
 	// As timer is fime grained avoiding call
 	// That could go to hardware
 	case WATCH:
-		timeforformat = yachtimer_getPblLastTime(&myYachtTimer);
+		timeforformat = yachtimer_getPblLastTime(myYachtTimer);
 		strftime(date, sizeof(date) , "%a %h %e", timeforformat);	
 
 		// Don't bother redrawing if correct
@@ -626,19 +626,19 @@ void update_stopwatch() {
 		// shows the mode that a counter was started in when in watch mode.
 		// otherwise always shows last which is countdown.
 		// 
-		yachtimer_setMode(&myYachtTimer,startappmode);
+		yachtimer_setMode(myYachtTimer,startappmode);
 	//  Some interesting implied logic as default fall through is some form of countdown in config mode
         // as in config stopwatch appmode is left as is
     }
 
     // abs flips negative times possible in countdown starts to show time since
     // countdown completed
-    display_time = labs(yachtimer_getDisplayTime(&myYachtTimer));
+    display_time = labs(yachtimer_getDisplayTime(myYachtTimer));
 
     // Get a time we can format
-    timerforformat = yachtimer_getPblDisplayTime(&myYachtTimer);
+    timerforformat = yachtimer_getPblDisplayTime(myYachtTimer);
 
-    theTimeEventType event = yachtimer_triggerEvent(&myYachtTimer);
+    theTimeEventType event = yachtimer_triggerEvent(myYachtTimer);
 
     if(event == MinorTime) vibes_double_pulse();
     if(event == MajorTime) vibes_enqueue_custom_pattern(start_pattern);
@@ -737,8 +737,8 @@ void save_lap_time(time_t lap_time) {
 void handle_timer(void *data) {
     uint32_t cookie = *(uint32_t *)data;
     if(cookie == TIMER_UPDATE) {
-	yachtimer_tick(&myYachtTimer,ticklen);
-        ticklen = yachtimer_getTick(&myYachtTimer);
+	yachtimer_tick(myYachtTimer,ticklen);
+        ticklen = yachtimer_getTick(myYachtTimer);
     	update_timer = app_timer_register( ticklen, &handle_timer, data);
         update_stopwatch();
     }
@@ -766,7 +766,7 @@ void toggle_mode(ClickRecognizerRef recognizer, void *data) {
 		watchappmode = 0;
 	  }
 	  // Can only set to first three but watch appmode can have 6 modes
-	  yachtimer_setMode(&myYachtTimer,watchappmode);
+	  yachtimer_setMode(myYachtTimer,watchappmode);
 	 
 	  show_buttons();
 	 
@@ -778,7 +778,7 @@ void toggle_mode(ClickRecognizerRef recognizer, void *data) {
 		  layer_set_hidden((Layer *)watch_layer_ampm,false);
 
 		  // Hide stopwatch/countdown if not started
-		  if(!yachtimer_isRunning(&myYachtTimer))		
+		  if(!yachtimer_isRunning(myYachtTimer))		
 		  {
 		  	layer_set_hidden((Layer *)big_time_layer,true);
 		  	layer_set_hidden((Layer *)seconds_time_layer,true);

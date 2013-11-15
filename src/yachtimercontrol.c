@@ -26,6 +26,36 @@
 
 #define NUMDEFHANDLERS 4
 
+struct YachtTimerControl {
+        // List of modes for controller to manage passed in init
+        ModeResource *resources;
+        // Number of modes
+        int numModes;
+        // Underlying model
+        YachtTimer *theModel;
+        // Used to keep track of last time so handle_tick gets past right flags
+        struct tm  theLastTime;
+        // Passed at construction for final countdown vibe
+        VibePattern *endVibePattern;
+        // Ticks since last toggle
+        int ticks;
+        // handle to timer events set up and managed by controller
+        AppTimer *update_timer;
+        // between loops remebers what last set to
+        // Used by model to work out when in fine grained timing mode
+        int ticklen;
+        // Current mode of controller not mode of model
+        int mode;
+        // record mode on each start or reset. So if not in mode can get to what is needed.
+        int startappmode;
+        // Tick handler where display is meant to happen
+        TickHandler tickHandler;
+        // Click controls overrides if needed
+        YachtTimerControlExtension *extension;
+        bool autohidebitmaps;
+
+} ;
+
 // Singleton Yacht Control
 // No context in cal backs so need this to route back to right calls
 static YachtTimerControl *this;
@@ -105,61 +135,65 @@ void yachtimercontrol_default_config_provider( void *context) {
 }
 
 
-void yachtimercontrol_init(	YachtTimerControl *theControl,
+YachtTimerControl *yachtimercontrol_create(
 				Window *window, 
 				ModeResource *modeResource, 
 				int numModes, 
 				GRect positionIcon,  
 				TickHandler tickHandler )
 {
-	this = theControl;
+	YachtTimerControl *theControl = malloc(sizeof(YachtTimerControl));
+	if(theControl)
+	{
+		this = theControl;
 
-	this->resources = modeResource;
-	this->numModes = numModes;
-	this->endVibePattern = &default_start_pattern;
-	
-	this->ticks = 0;
-	this->update_timer = APP_TIMER_INVALID_HANDLE;
-	this->ticklen = 0;
-	this->tickHandler = tickHandler;
+		this->resources = modeResource;
+		this->numModes = numModes;
+		this->endVibePattern = &default_start_pattern;
+		
+		this->ticks = 0;
+		this->update_timer = NULL;
+		this->ticklen = 0;
+		this->tickHandler = tickHandler;
 
-	// Set standard handler
-	this->extension = &defaultExtension;
-
-
-  	// Arrange for user input. Default 
-  	window_set_click_config_provider(window, (ClickConfigProvider) yachtimercontrol_default_config_provider);
+		// Set standard handler
+		this->extension = &defaultExtension;
 
 
-	for (int i=0;i<numModes;i++)
-  	{
-		modeResource[i].imgBmp = gbitmap_create_with_resource(modeResource[i].resourceid);
-		modeResource[i].modeImage = bitmap_layer_create(modeResource[i].imgBmp->bounds);
-		bitmap_layer_set_bitmap(modeResource[i].modeImage,modeResource[i].imgBmp);
-        	// bmp_init_container(modeResource[i].resourceid,&(modeResource[i].modeImage));
-       		layer_set_frame((Layer *)modeResource[i].modeImage, positionIcon);
-		layer_set_hidden((Layer *)modeResource[i].modeImage, true);
-        	layer_add_child(window_get_root_layer(window),(Layer *)modeResource[i].modeImage);
-  	}		
+		// Arrange for user input. Default 
+		window_set_click_config_provider(window, (ClickConfigProvider) yachtimercontrol_default_config_provider);
 
-	// initialise the modelad set to starting mode.
-	// resourcelist passed in sets the starting mode.
-	yachtimer_init(yachtimercontrol_getModel(this),(this->resources)[0].mode);
-	yachtimer_setConfigTime(yachtimercontrol_getModel(this),ASECOND * 60 * 10);
-	yachtimer_tick(yachtimercontrol_getModel(this),0);
-	// mode of controller offset in resource array 
-	this->mode = 0;
-	// Starting mode of model
-	this->startappmode = (this->resources)[0].mode;
-	yachtimercontrol_stop_stopwatch(this);
-	struct tm  *tick_time;
-	tick_time = yachtimer_getPblDisplayTime(yachtimercontrol_getModel(this));
-	memcpy(&(this->theLastTime),tick_time,sizeof(struct tm));
-	this->theLastTime.tm_yday = tick_time->tm_yday;
-  	this->theLastTime.tm_mon = tick_time->tm_mon;
-  	this->theLastTime.tm_year = tick_time->tm_year;
-    this->autohidebitmaps=true;
-	
+
+		for (int i=0;i<numModes;i++)
+		{
+			modeResource[i].imgBmp = gbitmap_create_with_resource(modeResource[i].resourceid);
+			modeResource[i].modeImage = bitmap_layer_create(modeResource[i].imgBmp->bounds);
+			bitmap_layer_set_bitmap(modeResource[i].modeImage,modeResource[i].imgBmp);
+			// bmp_init_container(modeResource[i].resourceid,&(modeResource[i].modeImage));
+			layer_set_frame((Layer *)modeResource[i].modeImage, positionIcon);
+			layer_set_hidden((Layer *)modeResource[i].modeImage, true);
+			layer_add_child(window_get_root_layer(window),(Layer *)modeResource[i].modeImage);
+		}		
+
+		// initialise the modelad set to starting mode.
+		// resourcelist passed in sets the starting mode.
+		this->theModel = yachtimer_create((this->resources)[0].mode);
+		yachtimer_setConfigTime(yachtimercontrol_getModel(this),ASECOND * 60 * 10);
+		yachtimer_tick(yachtimercontrol_getModel(this),0);
+		// mode of controller offset in resource array 
+		this->mode = 0;
+		// Starting mode of model
+		this->startappmode = (this->resources)[0].mode;
+		yachtimercontrol_stop_stopwatch(this);
+		struct tm  *tick_time;
+		tick_time = yachtimer_getPblDisplayTime(yachtimercontrol_getModel(this));
+		memcpy(&(this->theLastTime),tick_time,sizeof(struct tm));
+		this->theLastTime.tm_yday = tick_time->tm_yday;
+		this->theLastTime.tm_mon = tick_time->tm_mon;
+		this->theLastTime.tm_year = tick_time->tm_year;
+	        this->autohidebitmaps=true;
+	}
+	return(theControl);
 }
 bool yachtimercontrol_getAutohide(YachtTimerControl *theControl)
 {
@@ -171,9 +205,9 @@ void yachtimercontrol_setAutohide(YachtTimerControl *theControl, bool autoHide)
 }
 YachtTimer* yachtimercontrol_getModel(YachtTimerControl *theControl)
 {
-	return(&(theControl->theModel));
+	return(theControl->theModel);
 }
-void yachtimercontrol_deinit(YachtTimerControl *theControl)
+void yachtimercontrol_destroy(YachtTimerControl *theControl)
 {
 	ModeResource *modeResource=theControl->resources;
 	
@@ -183,6 +217,8 @@ void yachtimercontrol_deinit(YachtTimerControl *theControl)
 		gbitmap_destroy(modeResource[i].imgBmp);
 		// bmp_deinit_container(&(modeResource[i].modeImage));
 	}
+	yachtimer_destroy(yachtimercontrol_getModel(theControl));
+	free(theControl);
 }
 
 
