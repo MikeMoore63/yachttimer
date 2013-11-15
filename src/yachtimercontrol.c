@@ -178,13 +178,21 @@ YachtTimerControl *yachtimercontrol_create(
 		// initialise the modelad set to starting mode.
 		// resourcelist passed in sets the starting mode.
 		this->theModel = yachtimer_create((this->resources)[0].mode);
-		yachtimer_setConfigTime(yachtimercontrol_getModel(this),ASECOND * 60 * 10);
 		yachtimer_tick(yachtimercontrol_getModel(this),0);
 		// mode of controller offset in resource array 
+                // if mode is removed defaults to first
 		this->mode = 0;
 		// Starting mode of model
-		this->startappmode = (this->resources)[0].mode;
-		yachtimercontrol_stop_stopwatch(this);
+		for(int i=0;i<numModes;i++)
+		{
+			if(yachtimer_getMode(yachtimercontrol_getModel(this)) == modeResource[i].mode)
+			{
+				this->mode = i;
+			}
+		}
+		this->startappmode = (this->resources)[this->mode].mode;
+
+
 		struct tm  *tick_time;
 		tick_time = yachtimer_getPblDisplayTime(yachtimercontrol_getModel(this));
 		memcpy(&(this->theLastTime),tick_time,sizeof(struct tm));
@@ -192,6 +200,7 @@ YachtTimerControl *yachtimercontrol_create(
 		this->theLastTime.tm_mon = tick_time->tm_mon;
 		this->theLastTime.tm_year = tick_time->tm_year;
 	        this->autohidebitmaps=true;
+    		yachtimercontrol_update_hand_positions(theControl);
 	}
 	return(theControl);
 }
