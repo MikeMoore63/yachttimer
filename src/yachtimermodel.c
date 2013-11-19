@@ -427,7 +427,7 @@ YachtTimer *yachtimer_create_with_storage(const uint32_t  storageKey, int defapp
 	{
 		if(persist_exists(storageKey))
 		{
-			persist_read_data(storageKey,sizeof(YachtTimer),(void *)myTimer);
+			persist_read_data(storageKey,(void *)myTimer,sizeof(YachtTimer));
 		}
 		// if struct has changed in non backward compatible way revert to default modes.
 		if(myTimer->storageVersion != STORAGE_VERSION)
@@ -445,7 +445,7 @@ bool yachtimer_write_to_storage(YachtTimer *myTimer)
 	size_t written=0;
 	if(myTimer->storageKey != UNDEFINED_STORE_KEY)
 	{
-		written = persist_write_data(myTimer->storageKey,sizeof(YachtTimer),(void *)myTimer);
+		written = persist_write_data(myTimer->storageKey,(void *)myTimer,sizeof(YachtTimer));
 	}
 	if(written == sizeof(YachtTimer))
 	{

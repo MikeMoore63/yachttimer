@@ -434,15 +434,21 @@ void reset_stopwatch_handler(ClickRecognizerRef recognizer, void *data) {
 	    busy_animating = LAP_TIME_SIZE;
 	    static PropertyAnimation *animations[LAP_TIME_SIZE];
 	    static GRect targets[LAP_TIME_SIZE];
+            static bool first=true;
 	    GRect origin;
 	    for(int i = 0; i < LAP_TIME_SIZE; ++i) {
 		origin = layer_get_frame((Layer *)lap_layers[i]);
 		targets[i] = origin;
 		targets[i].origin.y += targets[i].size.h * LAP_TIME_SIZE;
+                if(!first && animations[i] != NULL)
+                {
+			property_animation_destroy(animations[i]);
+                }
 		animations[i] = property_animation_create_layer_frame((Layer *)lap_layers[i],NULL,&targets[i]);
 		shift_lap_layer((Animation *)animations[i], (Layer *)lap_layers[i], &targets[i], LAP_TIME_SIZE);
 		animation_schedule((Animation *)animations[i]);
 	    }
+            first = false;
 	    next_lap_layer = 0;
 	    break;
 	default:
@@ -699,6 +705,7 @@ void save_lap_time(time_t lap_time) {
 
     static PropertyAnimation *animations[LAP_TIME_SIZE];
     static GRect targets[LAP_TIME_SIZE];
+    static bool first = true;
     GRect origin;
 
     // Shift them down visually (assuming they actually exist)
@@ -708,18 +715,27 @@ void save_lap_time(time_t lap_time) {
 	origin = layer_get_frame((Layer *)lap_layers[i]);
 	targets[i] = origin;
     	targets[i].origin.y += targets[i].size.h * 1;
+        if(!first && animations[i] != NULL)
+	{
+		property_animation_destroy(animations[i] );
+	}
 	animations[i] = property_animation_create_layer_frame((Layer *)lap_layers[i],NULL,&targets[i]);
         shift_lap_layer((Animation *)animations[i], (Layer *)lap_layers[i], &targets[i], 1);
         animation_schedule((Animation *)animations[i]);
     }
+    first = false;
 
     // Once those are done we can slide our new lap time in.
     format_lap(lap_time, lap_times[next_lap_layer],LAP_TIME_LEN);
 
     // Animate it
-    static PropertyAnimation *entry_animation;
+    static PropertyAnimation *entry_animation = NULL;
     //static GRect origin; origin = ;
     //static GRect target; target = ;
+    if(entry_animation)
+    {
+	property_animation_destroy(entry_animation);
+    }
     entry_animation = property_animation_create_layer_frame((Layer *)lap_layers[next_lap_layer], &GRect(-139, 52, 139, 26), &GRect(5, 52, 139, 26));
     // property_animation_init_layer_frame(&entry_animation, (Layer *)lap_layers[next_lap_layer], &GRect(-139, 52, 139, 26), &GRect(5, 52, 139, 26));
     animation_set_curve((Animation *)entry_animation, AnimationCurveEaseOut);

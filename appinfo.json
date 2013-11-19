@@ -4,7 +4,7 @@
   "longName": "YachtTimer",
   "companyName": "Mike Moore",
   "versionCode": 6,
-  "versionLabel": "6.0.1",
+  "versionLabel": "6.0.2",
   "watchapp": {
     "watchface": false
   },
