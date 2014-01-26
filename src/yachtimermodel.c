@@ -29,7 +29,7 @@
 #include "yachtimermodel.h"
 
 #define UNDEFINED_STORE_KEY 0xffff
-#define STORAGE_VERSION 1   // To allow for incompatible stored structs can always add to end for extra but if need to change
+#define STORAGE_VERSION 3   // To allow for incompatible stored structs can always add to end for extra but if need to change
 
 // Ok so plan is we model timers, stopwatches countdownas objects
 // Plan is to allow as many as  needed and to keep start and stop and laps independant.
@@ -71,7 +71,7 @@ struct YachtTimer {
         time_t last_significant_time /* = 0*/;
         struct tm  t;
         struct tm  d;
-} __attribute__((__packed__))  ;
+} /* __attribute__((__packed__)) */ ;
 
 
 
@@ -445,7 +445,7 @@ bool yachtimer_write_to_storage(YachtTimer *myTimer)
 	size_t written=0;
 	if(myTimer->storageKey != UNDEFINED_STORE_KEY)
 	{
-		written = persist_write_data(myTimer->storageKey,(void *)myTimer,sizeof(YachtTimer));
+		 written = persist_write_data(myTimer->storageKey,(void *)myTimer,sizeof(YachtTimer));
 	}
 	if(written == sizeof(YachtTimer))
 	{
