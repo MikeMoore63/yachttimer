@@ -80,8 +80,8 @@ struct YachtTimer {
 // Set the time and milliseconds in the timer
 static time_t get_pebble_time(YachtTimer *myTimer)
 {
-    // Milliseconds since January 1st 2012 in some timezone, 
-    // Deciseconds since January 1st 2012 in some timezone, 
+    // Milliseconds since January 1st 1970 in some timezone, 
+    // Deciseconds since January 1st 1970 in some timezone, 
     // This does calc and sets member var
     // so if last time is needed in pebble format can be returned.
     struct tm  *t=&(myTimer->t);
@@ -96,7 +96,7 @@ static time_t get_pebble_time(YachtTimer *myTimer)
     seconds += t->tm_yday * 86400;
 
     // Need to handle leap years
-    seconds += DAYS_BETWEEN_YEARS(2012, t->tm_year ) * 86400;
+    seconds += DAYS_BETWEEN_YEARS(1970, t->tm_year ) * 86400;
 
     return seconds * ASECOND;
 	

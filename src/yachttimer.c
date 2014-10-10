@@ -314,9 +314,8 @@ void handle_init() {
     buttonmodeimages[WATCH + INVOFFSET] = RESOURCE_ID_IMAGE_WATCH_BUTTON_LABELSIV; 
 
     // Set up button layers normal and inverse
-    for(int i=0;i<(MAXMODE * 2) ;i++) {
-
-		
+    for(int i=0;i<(MAXMODE * 2) ;i++) 
+    {
 	button_images[i] = gbitmap_create_with_resource	(buttonmodeimages[i]); 	
         button_labels[i] = bitmap_layer_create(GRect(130, 10, 14, 136));
 	bitmap_layer_set_bitmap(button_labels[i],button_images[i]);

@@ -4,7 +4,7 @@
   "longName": "YachtTimer",
   "companyName": "Mike Moore",
   "versionCode": 6,
-  "versionLabel": "6.0.3",
+  "versionLabel": "6.1",
   "watchapp": {
     "watchface": false
   },
@@ -12,19 +12,16 @@
   "resources": {
     "media": [
       {
-        "characterRegex": "[:0-9.]",
         "type": "font",
         "name": "FONT_DEJAVU_SANS_BOLD_SUBSET_30",
         "file": "fonts/DejaVuSans-Bold.ttf"
       },
       {
-        "characterRegex": "[:0-9. )Nolapsyet]",
         "type": "font",
         "name": "FONT_DEJAVU_SANS_SUBSET_18",
         "file": "fonts/DejaVuSans.ttf"
       },
       {
-        "characterRegex": "[:0-9. JFMASONDTWabcdeghilmnoprstuvyAMP]",
         "type": "font",
         "name": "FONT_DEJAVU_SANS_SUBSET_22",
         "file": "fonts/DejaVuSans.ttf"
