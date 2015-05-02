@@ -105,14 +105,14 @@ static AppTimer *update_timer = NULL;
 
 #ifdef WHITE_ON_BLACK
 static bool white_on_black=true;
-static GColor foreground_colour = GColorWhite;
-static GColor background_colour = GColorBlack;
+static GColor foreground_colour;  // = GColorWhite;
+static GColor background_colour; //  = GColorBlack;
 // offset pointer used with app mode to work out which bit map to show.
 static int inv_offset = 0;
 #else
 static bool white_on_black=false;
-static GColor foreground_colour = GColorBlack;
-static GColor background_colour = GColorWhite;
+static GColor foreground_colour; // = GColorBlack;
+static GColor background_colour; // = GColorWhite;
 // offset pointer used with app mode to work out which bit map to show.
 static int inv_offset = INVOFFSET;
 #endif
@@ -179,6 +179,17 @@ void config_watch(int appmode,int increment);
 void animation_stopped(Animation *animation, void *data);
 
 void handle_init() {
+
+#ifdef WHITE_ON_BLACK
+foreground_colour = GColorWhite;
+background_colour = GColorBlack;
+// offset pointer used with app mode to work out which bit map to show.
+#else
+foreground_colour = GColorBlack;
+background_colour = GColorWhite;
+// offset pointer used with app mode to work out which bit map to show.
+#endif
+
 
     window = window_create();
     // window_init(&window, "Stopwatch");

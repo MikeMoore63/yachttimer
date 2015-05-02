@@ -167,7 +167,7 @@ YachtTimerControl *yachtimercontrol_create(
 		for (int i=0;i<numModes;i++)
 		{
 			modeResource[i].imgBmp = gbitmap_create_with_resource(modeResource[i].resourceid);
-			modeResource[i].modeImage = bitmap_layer_create(modeResource[i].imgBmp->bounds);
+			modeResource[i].modeImage = bitmap_layer_create(gbitmap_get_bounds(modeResource[i].imgBmp));
 			bitmap_layer_set_bitmap(modeResource[i].modeImage,modeResource[i].imgBmp);
 			// bmp_init_container(modeResource[i].resourceid,&(modeResource[i].modeImage));
 			layer_set_frame((Layer *)modeResource[i].modeImage, positionIcon);

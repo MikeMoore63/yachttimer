@@ -25,6 +25,11 @@
 #define _MMYACHTIMERMODEL_H_
 #include <pebble.h>
 
+// Useful stuff but really should be general
+#ifdef PBL_PLATFORM_APLITE
+// #define gbitmap_get_bounds(bitmap)  (bitmap->bounds)
+#endif
+
 //
 // Stop watch timer based upon stop watch atimer code from Katherine Berry so many thanks to Katherine
 // for a starting set of code.
