@@ -178,6 +178,42 @@ void config_watch(int appmode,int increment);
 // Animation handlers
 void animation_stopped(Animation *animation, void *data);
 
+#ifdef PBL_SDK_3
+static StatusBarLayer *s_status_bar;
+static struct Layer *s_battery_layer;
+#endif
+#ifdef PBL_SDK_3
+static void battery_proc(Layer *layer, GContext *ctx) {
+  // Emulator battery meter on Aplite
+  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_draw_rect(ctx, GRect(126, 4, 14, 8));
+  graphics_draw_line(ctx, GPoint(140, 6), GPoint(140, 9));
+
+  BatteryChargeState state = battery_state_service_peek();
+  int width = (int)(float)(((float)state.charge_percent / 100.0F) * 10.0F);
+  graphics_context_set_fill_color(ctx, GColorWhite);
+  graphics_fill_rect(ctx, GRect(128, 6, width, 4), 0, GCornerNone);
+}
+#endif
+static void main_window_load(Window *window) {
+
+  /* other UI code */
+
+#ifdef PBL_SDK_3
+
+  // Set up the status bar last to ensure it is on top of other Layers
+  struct Layer *window_layer = window_get_root_layer(window);
+  s_status_bar = status_bar_layer_create();
+  layer_add_child(window_layer , status_bar_layer_get_layer(s_status_bar));
+
+  // Show legacy battery meter
+  GRect bounds = layer_get_bounds(status_bar_layer_get_layer(s_status_bar));
+  s_battery_layer = layer_create(GRect(bounds.origin.x, bounds.origin.y, bounds.size.w, STATUS_BAR_LAYER_HEIGHT));
+  layer_set_update_proc(s_battery_layer, battery_proc);
+  layer_add_child(window_layer, s_battery_layer);	
+
+#endif
+}
 void handle_init() {
 
 #ifdef WHITE_ON_BLACK
@@ -195,7 +231,13 @@ background_colour = GColorWhite;
     // window_init(&window, "Stopwatch");
     window_stack_push(window, true /* Animated */);
     window_set_background_color(window, background_colour);
+#ifdef PBL_SDK_3
+    window_set_window_handlers(window, (WindowHandlers){
+        .load = (WindowHandler)main_window_load
+    });
+#else
     window_set_fullscreen(window, false);
+#endif
 
     // resource_init_current_app(&APP_RESOURCES);
 
