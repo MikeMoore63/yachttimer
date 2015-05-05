@@ -181,6 +181,9 @@ void animation_stopped(Animation *animation, void *data);
 #ifdef PBL_SDK_3
 static StatusBarLayer *s_status_bar;
 static struct Layer *s_battery_layer;
+#define WINDOWOFFSET STATUS_BAR_LAYER_HEIGHT
+#else
+#define WINDOWOFFSET 0
 #endif
 #ifdef PBL_SDK_3
 static void battery_proc(Layer *layer, GContext *ctx) {
@@ -253,7 +256,7 @@ background_colour = GColorWhite;
     Layer *root_layer = window_get_root_layer(window);
 
     // Set up the big timer.
-    big_time_layer = text_layer_create(GRect(0, 5, 96, 35));
+    big_time_layer = text_layer_create(GRect(0, 5+WINDOWOFFSET, 96, 35));
     // text_layer_init(&big_time_layer, GRect(0, 5, 96, 35));
     text_layer_set_background_color(big_time_layer, background_colour);
     text_layer_set_font(big_time_layer, big_font);
@@ -276,7 +279,7 @@ background_colour = GColorWhite;
     text_layer_set_text_alignment(big_time_layer, GTextAlignmentRight);
     layer_add_child(root_layer, (Layer *)big_time_layer);
 
-    seconds_time_layer = text_layer_create(GRect(96, 17, 49, 35));
+    seconds_time_layer = text_layer_create(GRect(96, 17+WINDOWOFFSET, 49, 35));
 
     // text_layer_init(&seconds_time_layer, GRect(96, 17, 49, 35));
     text_layer_set_background_color(seconds_time_layer, background_colour);
@@ -286,7 +289,7 @@ background_colour = GColorWhite;
     layer_add_child(root_layer, (Layer *)seconds_time_layer);
 
     // Set up the watch layer but hide it.
-    watch_layer_date = text_layer_create(GRect(0, 12, 96+49, 35));
+    watch_layer_date = text_layer_create(GRect(0, 12+WINDOWOFFSET, 96+49, 35));
 
     // text_layer_init(&watch_layer_date, GRect(0, 12, 96+49, 35));
     text_layer_set_background_color(watch_layer_date, background_colour);
@@ -302,7 +305,7 @@ background_colour = GColorWhite;
     layer_add_child(root_layer, (Layer *)watch_layer_date);
 
     // Set up the watch layer but hide it.
-    watch_layer_timebig = text_layer_create(GRect(0, 52, 96, 35));
+    watch_layer_timebig = text_layer_create(GRect(0, 52+WINDOWOFFSET, 96, 35));
 
     // text_layer_init(&watch_layer_timebig, GRect(0, 52, 96, 35));
     text_layer_set_background_color(watch_layer_timebig, background_colour);
@@ -318,7 +321,7 @@ background_colour = GColorWhite;
     layer_add_child(root_layer, (Layer *)watch_layer_timebig);
 
     // Set up the watch layer but hide it. 
-    watch_layer_ampm = text_layer_create(GRect(96, 60, 49, 35));
+    watch_layer_ampm = text_layer_create(GRect(96, 60+WINDOWOFFSET, 49, 35));
     // text_layer_init(&watch_layer_ampm, GRect(96, 60, 49, 35));
     text_layer_set_background_color(watch_layer_ampm, background_colour);
     text_layer_set_font(watch_layer_ampm, laps_font);
@@ -333,7 +336,7 @@ background_colour = GColorWhite;
     layer_add_child(root_layer, (Layer *)watch_layer_ampm);
 
     // Draw our nice line.
-    line_layer = layer_create(GRect(0, 45, 144, 2));
+    line_layer = layer_create(GRect(0, 45+WINDOWOFFSET, 144, 2));
     // layer_init(&line_layer, GRect(0, 45, 144, 2));
     layer_set_update_proc(line_layer, draw_line);
     // line_layer.update_proc = &draw_line;
@@ -370,7 +373,7 @@ background_colour = GColorWhite;
     for(int i=0;i<(MAXMODE * 2) ;i++) 
     {
 	button_images[i] = gbitmap_create_with_resource	(buttonmodeimages[i]); 	
-        button_labels[i] = bitmap_layer_create(GRect(130, 10, 14, 136));
+        button_labels[i] = bitmap_layer_create(GRect(130, 10+WINDOWOFFSET, 14, 136));
 	bitmap_layer_set_bitmap(button_labels[i],button_images[i]);
     	// bmp_init_container(buttonmodeimages[i], &button_labels[i]);
     	// layer_set_frame(&button_labels[i].layer.layer, GRect(130, 10, 14, 136));
@@ -417,6 +420,7 @@ void handle_deinit() {
     fonts_unload_custom_font(laps_font);
     yachtimer_destroy(myYachtTimer);
     window_destroy(window);
+    
 }
 
 void draw_line(Layer *me, GContext* ctx) {
