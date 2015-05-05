@@ -344,7 +344,7 @@ background_colour = GColorWhite;
 
     // Set up the lap time layers. These will be made visible later.
     for(int i = 0; i < LAP_TIME_SIZE; ++i) {
-	lap_layers[i] = text_layer_create(GRect(-139, 52, 139, 30));
+	lap_layers[i] = text_layer_create(GRect(-139, 52+WINDOWOFFSET, 139, 30));
         // text_layer_init(&lap_layers[i], GRect(-139, 52, 139, 30));
         text_layer_set_background_color(lap_layers[i], GColorClear);
         text_layer_set_font(lap_layers[i], laps_font);
